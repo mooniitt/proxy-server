@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Proxy Mock Dashboard (Vue 3)</title>
+    <script src="/vue.global.js"></script>
+    <style>
+        :root {
+            --primary-bg: #f8fafc;
+            --sidebar-bg: #ffffff;
+            --blue-light: #e0f2fe;
+            --blue-main: #0ea5e9;
+            --blue-dark: #0369a1;
+            --text-main: #1e293b;
+            --text-secondary: #64748b;
+            --border-color: #e2e8f0;
+            --shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            --radius: 8px;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: "Inter", -apple-system, system-ui, sans-serif;
+            background-color: var(--primary-bg);
+            color: var(--text-main);
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        #app {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            background-color: #ffffff;
+            padding: 0.75rem 2rem;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 100;
+        }
+
+        header h1 {
+            font-size: 1.1rem;
+            color: var(--blue-dark);
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .main-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* Sidebar Tabs */
+        .sidebar {
+            width: 380px;
+            background-color: var(--sidebar-bg);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .tab-header {
+            display: flex;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 1rem;
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .tab-btn.active {
+            color: var(--blue-main);
+        }
+
+        .tab-btn.active::after {
+            content: "";
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background-color: var(--blue-main);
+        }
+
+        .sidebar-content {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        /* Rule List Item */
+        .list-item {
+            padding: 1rem 1.25rem;
+            border-bottom: 1px solid var(--border-color);
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .list-item:hover {
+            background-color: #f1f5f9;
+        }
+
+        .list-item.active {
+            background-color: var(--blue-light);
+            box-shadow: inset 4px 0 0 var(--blue-main);
+        }
+
+        .item-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .item-title {
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 0.2rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .item-sub {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* Traffic Specific */
+        .status-badge {
+            font-size: 0.65rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 700;
+            margin-left: 0.5rem;
+        }
+
+        .status-2xx {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .status-4xx,
+        .status-5xx {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .status-mock {
+            border: 1px solid var(--blue-main);
+            color: var(--blue-main);
+        }
+
+        /* Editor Area */
+        .editor-container {
+            flex: 1;
+            background: white;
+            overflow-y: auto;
+            padding: 2rem;
+        }
+
+        .editor-content {
+            max-width: 900px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .section-title {
+            font-size: 0.9rem;
+            font-weight: 700;
+            border-left: 4px solid var(--blue-main);
+            padding-left: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        label {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+
+        input,
+        select,
+        textarea {
+            padding: 0.6rem 0.8rem;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius);
+            font-size: 0.85rem;
+            outline: none;
+        }
+
+        input:focusRow,
+        textarea:focus {
+            border-color: var(--blue-main);
+            box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1);
+        }
+
+        textarea {
+            font-family: 'Fira Code', monospace;
+            min-height: 250px;
+            resize: vertical;
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        /* Switch */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 34px;
+            height: 18px;
+        }
+
+        .switch input {
+            display: none;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #cbd5e1;
+            transition: .4s;
+            border-radius: 20px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 14px;
+            width: 14px;
+            left: 2px;
+            bottom: 2px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked+.slider {
+            background-color: var(--blue-main);
+        }
+
+        input:checked+.slider:before {
+            transform: translateX(16px);
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: 600;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .btn-primary {
+            background: var(--blue-main);
+            color: white;
+        }
+
+        .btn-primary:active {
+            background: var(--blue-dark);
+        }
+
+        .btn-secondary {
+            background: #f1f5f9;
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+        }
+
+        .btn-danger {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #1e293b;
+            color: white;
+            padding: 0.7rem 1.5rem;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            transform: translateY(100px);
+            transition: 0.3s;
+            z-index: 1000;
+        }
+
+        .toast.show {
+            transform: translateY(0);
+        }
+
+        .empty-view {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-secondary);
+            gap: 1rem;
+            opacity: 0.6;
+        }
+
+        .badge-traffic {
+            font-size: 0.6rem;
+            padding: 1px 4px;
+            border-radius: 3px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app">
+        <div class="toast" :class="{ show: toast.visible }" :style="{ background: toast.bg }">{{ toast.msg }}</div>
+
+        <header>
+            <h1><span>⚡</span> Proxy Mock (Vue 3)</h1>
+            <div style="display: flex; gap: 0.8rem;">
+                <a href="/ca.crt" class="btn btn-secondary" style="text-decoration: none;">📥 下载 CA 证书</a>
+                <button class="btn btn-secondary" @click="exportConfig">导出配置</button>
+                <button class="btn btn-primary" @click="saveAll">全部保存</button>
+            </div>
+        </header>
+
+        <div class="main-container">
+            <!-- Sidebar -->
+            <div class="sidebar">
+                <div class="tab-header">
+                    <button class="tab-btn" :class="{ active: activeTab === 'rules' }"
+                        @click="activeTab = 'rules'">规则配置</button>
+                    <button class="tab-btn" :class="{ active: activeTab === 'traffic' }"
+                        @click="activeTab = 'traffic'">流量监控</button>
+                </div>
+
+                <!-- Rules Tab -->
+                <div v-if="activeTab === 'rules'" class="sidebar-content">
+                    <div
+                        style="padding: 1rem; border-bottom: 1px solid var(--border-color); display: flex; gap: 0.5rem;">
+                        <input type="text" v-model="ruleSearch" placeholder="搜索规则..."
+                            style="flex: 1; font-size: 0.8rem;">
+                        <button class="btn btn-primary" style="padding: 0.4rem 0.8rem;" @click="addRule">+ 新增</button>
+                    </div>
+                    <div v-for="rule in filteredRules" :key="rule.id" class="list-item"
+                        :class="{ active: currentRule?.id === rule.id }" @click="selectRule(rule)">
+                        <div class="item-info">
+                            <div class="item-title">{{ rule.name }}</div>
+                            <div class="item-sub">{{ rule.url }}</div>
+                        </div>
+                        <label class="switch" @click.stop>
+                            <input type="checkbox" v-model="rule.enabled" @change="saveAll">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div v-if="filteredRules.length === 0"
+                        style="padding: 2rem; text-align: center; color: #94a3b8; font-size: 0.8rem;">暂无匹配规则</div>
+                </div>
+
+                <!-- Traffic Tab -->
+                <div v-if="activeTab === 'traffic'" class="sidebar-content">
+                    <div
+                        style="padding: 1rem; border-bottom: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 0.8rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span style="font-size: 0.75rem; font-weight: 700; color: var(--text-secondary);">实时流量 (最近
+                                100
+                                条)</span>
+                            <button class="btn btn-secondary" style="padding: 0.2rem 0.5rem; font-size: 0.7rem;"
+                                @click.stop="getTraffic(true)">刷新</button>
+                        </div>
+                        <input type="text" v-model="trafficSearch" placeholder="搜索流量 (方法, URL)..."
+                            style="font-size: 0.8rem; width: 100%;">
+                    </div>
+                    <div v-for="log in filteredTraffic" :key="log.id" class="list-item" @click="selectTraffic(log)">
+                        <div class="item-info">
+                            <div class="item-title" style="display:flex; align-items:center; gap: 4px;">
+                                <span class="badge-traffic"
+                                    :style="{ color: log.method === 'POST' ? '#f59e0b' : '#0ea5e9' }">{{ log.method
+                                    }}</span>
+                                <span class="status-badge"
+                                    :class="log.statusCode >= 400 ? 'status-4xx' : 'status-2xx'">{{ log.statusCode
+                                    }}</span>
+                                <span v-if="log.mocked" class="status-badge status-mock">MOCK</span>
+                            </div>
+                            <div class="item-sub">{{ log.url }}</div>
+                        </div>
+                        <div style="font-size:0.6rem; color:#94a3b8; text-align: right;">
+                            <div>{{ formatTime(log.time) }}</div>
+                            <!-- <div style="font-size: 0.55rem">{{ log.duration }}</div> -->
+                        </div>
+                    </div>
+                    <div v-if="traffic.length === 0"
+                        style="padding: 2rem; text-align: center; color: #94a3b8; font-size: 0.8rem;">等待请求进入...</div>
+                </div>
+            </div>
+
+            <!-- Editor -->
+            <div class="editor-container">
+                <!-- Rule Editor -->
+                <div v-if="editorMode === 'rule' && currentRule" class="editor-content">
+                    <section>
+                        <div class="section-title">基础配置</div>
+                        <div class="grid-2">
+                            <div class="form-group">
+                                <label>规则名称</label>
+                                <input type="text" v-model="currentRule.name">
+                            </div>
+                            <div class="form-group">
+                                <label>激活状态</label>
+                                <div style="display: flex; align-items: center; gap: 0.5rem; height: 100%;">
+                                    <label class="switch">
+                                        <input type="checkbox" v-model="currentRule.enabled">
+                                        <span class="slider"></span>
+                                    </label>
+                                    <span style="font-size: 0.8rem; color: var(--text-secondary)">{{ currentRule.enabled
+                                        ? '已启用' : '已禁用' }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                    <section>
+                        <div class="section-title">匹配逻辑</div>
+                        <div class="grid-2">
+                            <div class="form-group">
+                                <label>匹配方式</label>
+                                <select v-model="currentRule.matchType">
+                                    <option value="exact">精确匹配 (Exact)</option>
+                                    <option value="prefix">前缀匹配 (Prefix)</option>
+                                    <option value="regex">正则匹配 (Regex)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>URL (支持 http/https)</label>
+                                <input type="text" v-model="currentRule.url" placeholder="例如: http://api.com/user">
+                            </div>
+                        </div>
+                    </section>
+                    <section>
+                        <div class="section-title">响应 Mock</div>
+                        <div class="grid-2">
+                            <div class="form-group">
+                                <label>状态码</label>
+                                <input type="number" v-model.number="currentRule.response.statusCode">
+                            </div>
+                            <div class="form-group">
+                                <label>Content-Type</label>
+                                <input type="text" v-model="currentRule.response.headers['Content-Type']"
+                                    placeholder="application/json">
+                            </div>
+                        </div>
+                        <div class="form-group" style="margin-top: 1.5rem;">
+                            <label>响应体 (Body)</label>
+                            <textarea v-model="currentRule.response.body"
+                                placeholder="支持 JSON, HTML, 文本等..."></textarea>
+                        </div>
+                    </section>
+                    <div
+                        style="display:flex; justify-content:space-between; margin-top:2rem; padding: 1rem 0; border-top: 1px solid var(--border-color);">
+                        <button class="btn btn-danger" @click="deleteRule(currentRule.id)">删除此规则</button>
+                        <button class="btn btn-primary" @click="saveAll">保存全部配置</button>
+                    </div>
+                </div>
+
+                <!-- Traffic Detail -->
+                <div v-else-if="editorMode === 'traffic' && selectedLog" class="editor-content">
+                    <div class="section-title">请求详情</div>
+                    <div
+                        style="background:#f1f5f9; padding:1.5rem; border-radius:8px; font-family:monospace; font-size:0.85rem; line-height:1.8;">
+                        <div style="word-break: break-all;"><b>URL:</b> <span style="color: var(--blue-dark)">{{
+                                selectedLog.url }}</span></div>
+                        <div class="grid-2" style="margin-top: 1rem;">
+                            <div><b>方法:</b> {{ selectedLog.method }}</div>
+                            <div><b>状态码:</b> <span
+                                    :style="{ color: selectedLog.statusCode >= 400 ? 'red' : 'green' }">{{
+                                    selectedLog.statusCode }}</span></div>
+                            <div><b>时间:</b> {{ new Date(selectedLog.time).toLocaleString() }}</div>
+                            <div><b>响应耗时:</b> {{ selectedLog.duration }}</div>
+                        </div>
+                        <div style="margin-top:1rem; border-top:1px solid #cbd5e1; padding-top:1rem;">
+                            <div><b>处理类型:</b> {{ selectedLog.mocked ? 'MOCK 响应' : '网络透传' }}</div>
+                        </div>
+                    </div>
+                    <div style="margin-top: 1.5rem;">
+                        <button class="btn btn-primary" @click="createRuleFromTraffic(selectedLog)">⚡ 基于此请求创建 Mock
+                            规则</button>
+                    </div>
+                </div>
+
+                <!-- Empty State -->
+                <div v-else class="empty-view">
+                    <svg width="60" height="60" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                        style="opacity: 0.3;">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1"
+                            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <p>选择左侧项目或查看流量实时动态</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp, ref, computed, onMounted, onUnmounted } = Vue;
+
+        createApp({
+            setup() {
+                const config = ref({ rules: [] });
+                const traffic = ref([]);
+                const activeTab = ref('rules');
+                const ruleSearch = ref('');
+                const trafficSearch = ref('');
+                const currentRule = ref(null);
+                const selectedLog = ref(null);
+                const editorMode = ref('none'); // 'rule', 'traffic', 'none'
+
+                const toast = ref({ visible: false, msg: '', bg: '#10b981' });
+
+                const filteredRules = computed(() => {
+                    const s = ruleSearch.value.toLowerCase();
+                    return config.value.rules.filter(r =>
+                        r.name.toLowerCase().includes(s) ||
+                        r.url.toLowerCase().includes(s)
+                    );
+                });
+
+                const filteredTraffic = computed(() => {
+                    const s = trafficSearch.value.toLowerCase();
+                    if (!s) return traffic.value;
+                    return traffic.value.filter(log =>
+                        log.method.toLowerCase().includes(s) ||
+                        log.url.toLowerCase().includes(s) ||
+                        String(log.statusCode).includes(s)
+                    );
+                });
+
+                const showToast = (msg, type = 'success') => {
+                    toast.value.msg = msg;
+                    toast.value.bg = type === 'success' ? '#10b981' : '#ef4444';
+                    toast.value.visible = true;
+                    setTimeout(() => toast.value.visible = false, 2000);
+                };
+
+                const getConfig = async () => {
+                    try {
+                        const res = await fetch('/api/config');
+                        config.value = await res.json();
+                    } catch (e) { showToast('加载配置失败', 'error'); }
+                };
+
+                const getTraffic = async (showMessage = false) => {
+                    try {
+                        const res = await fetch('/api/traffic');
+                        if (!res.ok) {
+                            console.error('Failed to fetch traffic:', res.status, res.statusText);
+                            if (showMessage) {
+                                showToast('获取流量数据失败', 'error');
+                            }
+                            return;
+                        }
+                        const data = await res.json();
+                        traffic.value = data || [];
+                        if (showMessage && traffic.value.length > 0) {
+                            showToast(`已加载 ${traffic.value.length} 条流量记录`, 'success');
+                        }
+                    } catch (e) {
+                        console.error('Error fetching traffic:', e);
+                        if (showMessage) {
+                            showToast('获取流量数据失败', 'error');
+                        }
+                    }
+                };
+
+                const saveAll = async () => {
+                    try {
+                        const res = await fetch('/api/config', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(config.value)
+                        });
+                        if (res.ok) showToast('配置已持久化');
+                        else showToast('保存失败', 'error');
+                    } catch (e) { showToast('网络错误', 'error'); }
+                };
+
+                const selectRule = (rule) => {
+                    currentRule.value = rule;
+                    editorMode.value = 'rule';
+                };
+
+                const selectTraffic = (log) => {
+                    selectedLog.value = log;
+                    editorMode.value = 'traffic';
+                };
+
+                const addRule = () => {
+                    const newRule = {
+                        id: 'rule-' + Date.now(),
+                        enabled: true,
+                        name: 'API Mock 示例',
+                        url: 'http://example.com/api',
+                        matchType: 'exact',
+                        response: {
+                            statusCode: 200,
+                            headers: { 'Content-Type': 'application/json' },
+                            body: '{"status": "ok"}'
+                        }
+                    };
+                    config.value.rules.unshift(newRule);
+                    selectRule(newRule);
+                };
+
+                const deleteRule = async (id) => {
+                    if (confirm('确定删除此规则？')) {
+                        config.value.rules = config.value.rules.filter(r => r.id !== id);
+                        currentRule.value = null;
+                        editorMode.value = 'none';
+                        // Save the updated config to server
+                        await saveAll();
+                        showToast('已删除');
+                    }
+                };
+
+                const createRuleFromTraffic = (log) => {
+                    addRule();
+                    currentRule.value.url = log.url;
+                    currentRule.value.name = 'Mock: ' + (log.url.split('/').pop() || 'Untitled');
+                    activeTab.value = 'rules';
+                };
+
+                const exportConfig = () => {
+                    const data = JSON.stringify(config.value, null, 2);
+                    const blob = new Blob([data], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'config.json';
+                    a.click();
+                };
+
+                const formatTime = (t) => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+                let timer;
+                onMounted(() => {
+                    getConfig();
+                    timer = setInterval(getTraffic, 2000);
+                });
+
+                onUnmounted(() => clearInterval(timer));
+
+                return {
+                    config, traffic, activeTab, ruleSearch, trafficSearch, currentRule, selectedLog, editorMode, toast,
+                    filteredRules, filteredTraffic, addRule, deleteRule, selectRule, selectTraffic, saveAll,
+                    exportConfig, createRuleFromTraffic, getTraffic, formatTime
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+
+</html>
