@@ -5,6 +5,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Proxy Mock Dashboard (Vue 3)</title>
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>">
     <script src="/vue.global.js"></script>
     <style>
         :root {
@@ -37,6 +39,11 @@
             overflow: hidden;
         }
 
+        body.resizing {
+            user-select: none;
+            cursor: col-resize;
+        }
+
         #app {
             height: 100%;
             display: flex;
@@ -62,6 +69,24 @@
             gap: 0.5rem;
         }
 
+        .header-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-left: 2rem;
+            flex: 1;
+        }
+
+        .info-pill {
+            background: #f1f5f9;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            border: 1px solid var(--border-color);
+            white-space: nowrap;
+        }
+
         .main-container {
             display: flex;
             flex: 1;
@@ -70,11 +95,33 @@
 
         /* Sidebar Tabs */
         .sidebar {
-            width: 380px;
+            /* width bound via :style in HTML */
+            min-width: 250px;
+            max-width: 600px;
+            flex-shrink: 0;
             background-color: var(--sidebar-bg);
             border-right: 1px solid var(--border-color);
             display: flex;
             flex-direction: column;
+            position: relative;
+        }
+
+        .resizer {
+            width: 8px;
+            /* Wider hit area */
+            cursor: col-resize;
+            background-color: transparent;
+            transition: background-color 0.2s;
+            position: absolute;
+            right: -4px;
+            top: 0;
+            bottom: 0;
+            z-index: 10;
+        }
+
+        .resizer:hover,
+        .resizer.active {
+            background-color: var(--blue-main);
         }
 
         .tab-header {
@@ -357,6 +404,68 @@
             border-radius: 3px;
             font-weight: bold;
         }
+
+        /* Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 85vh;
+            overflow-y: auto;
+            position: relative;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 1rem;
+        }
+
+        .modal-body h3 {
+            margin: 1.5rem 0 0.5rem 0;
+            color: var(--blue-dark);
+            font-size: 1rem;
+        }
+
+        .modal-body p,
+        .modal-body li {
+            font-size: 0.9rem;
+            line-height: 1.6;
+            color: var(--text-main);
+            margin-bottom: 0.5rem;
+        }
+
+        .modal-body ul {
+            padding-left: 1.25rem;
+        }
+
+        .step-badge {
+            background: var(--blue-light);
+            color: var(--blue-dark);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+            margin-right: 6px;
+        }
     </style>
 </head>
 
@@ -365,8 +474,15 @@
         <div class="toast" :class="{ show: toast.visible }" :style="{ background: toast.bg }">{{ toast.msg }}</div>
 
         <header>
-            <h1><span>⚡</span> Proxy Mock (Vue 3)</h1>
+            <h1><span>⚡</span> Proxy Mock</h1>
+            <div class="header-info">
+                <div v-if="serverInfo.ip" class="info-pill">
+                    代理地址：<strong>{{ serverInfo.ip }}:{{ serverInfo.port }}</strong>
+                </div>
+            </div>
             <div style="display: flex; gap: 0.8rem;">
+                <button class="btn btn-secondary" @click="showHelp = true">💡 使用说明</button>
+                <button class="btn btn-secondary" @click="regenerateCA">🔄 重生成 CA</button>
                 <a href="/ca.crt" class="btn btn-secondary" style="text-decoration: none;">📥 下载 CA 证书</a>
                 <button class="btn btn-secondary" @click="exportConfig">导出配置</button>
                 <button class="btn btn-primary" @click="saveAll">全部保存</button>
@@ -375,7 +491,8 @@
 
         <div class="main-container">
             <!-- Sidebar -->
-            <div class="sidebar">
+            <div class="sidebar" :style="{ width: sidebarWidth + 'px' }">
+                <div class="resizer" @mousedown="startResizing"></div>
                 <div class="tab-header">
                     <button class="tab-btn" :class="{ active: activeTab === 'rules' }"
                         @click="activeTab = 'rules'">规则配置</button>
@@ -473,9 +590,9 @@
                             <div class="form-group">
                                 <label>匹配方式</label>
                                 <select v-model="currentRule.matchType">
+                                    <option value="regex">正则匹配 (Regex)</option>
                                     <option value="exact">精确匹配 (Exact)</option>
                                     <option value="prefix">前缀匹配 (Prefix)</option>
-                                    <option value="regex">正则匹配 (Regex)</option>
                                 </select>
                             </div>
                             <div class="form-group">
@@ -546,10 +663,45 @@
                 </div>
             </div>
         </div>
+
+        <!-- Help Modal -->
+        <div v-if="showHelp" class="modal-overlay" @click.self="showHelp = false">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 style="font-size: 1.25rem;">⚡ Proxy Mock 使用说明</h2>
+                    <button class="btn btn-secondary" @click="showHelp = false">关闭</button>
+                </div>
+                <div class="modal-body">
+                    <h3>1. 设置代理</h3>
+                    <p>将您的设备（手机/浏览器）代理设置为当前机器 IP，端口为 <code
+                            style="background:#f1f5f9;padding:2px 4px;border-radius:3px;font-weight:bold;">9292</code>。
+                    </p>
+
+                    <h3>2. HTTPS 证书信任 (关键)</h3>
+                    <p>若要解密 HTTPS 流量，请下载并信任证书：</p>
+                    <ul>
+                        <li><span class="step-badge">iOS</span> 下载后，在“关于本机”->“证书信任设置”中勾选。</li>
+                        <li><span class="step-badge">Android</span> 在“加密和凭据”中从存储盘安装。</li>
+                        <li><span class="step-badge">PC</span> 导入至“受信任的根证书颁发机构”。</li>
+                    </ul>
+
+                    <h3>3. 匹配模式</h3>
+                    <ul>
+                        <li><strong>正则匹配</strong>: 建议用于复杂 API 过滤。</li>
+                        <li><strong>精确匹配</strong>: URL 必须完全一致。</li>
+                        <li><strong>前缀匹配</strong>: 匹配以特定路径开头的请求。</li>
+                    </ul>
+
+                    <div style="margin-top: 2rem; padding: 1rem; background: var(--blue-light); border-radius: 8px;">
+                        <p style="margin:0; font-weight: 500; font-size: 0.85rem;">💡 提示：所有规则改动点击“全部保存”后即时生效。</p>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
-        const { createApp, ref, computed, onMounted, onUnmounted } = Vue;
+        const { createApp, ref, computed, onMounted, onUnmounted, watch } = Vue;
 
         createApp({
             setup() {
@@ -561,6 +713,31 @@
                 const currentRule = ref(null);
                 const selectedLog = ref(null);
                 const editorMode = ref('none'); // 'rule', 'traffic', 'none'
+                const showHelp = ref(false);
+                const sidebarWidth = ref(380);
+                const isResizing = ref(false);
+                const serverInfo = ref({ ip: '', port: '' });
+
+                const startResizing = (e) => {
+                    isResizing.value = true;
+                    document.addEventListener('mousemove', doResize);
+                    document.addEventListener('mouseup', stopResizing);
+                    document.body.classList.add('resizing');
+                };
+
+                const doResize = (e) => {
+                    if (!isResizing.value) return;
+                    // Limit width between 250 and 600
+                    const newWidth = Math.max(250, Math.min(600, e.clientX));
+                    sidebarWidth.value = newWidth;
+                };
+
+                const stopResizing = () => {
+                    isResizing.value = false;
+                    document.removeEventListener('mousemove', doResize);
+                    document.removeEventListener('mouseup', stopResizing);
+                    document.body.classList.remove('resizing');
+                };
 
                 const toast = ref({ visible: false, msg: '', bg: '#10b981' });
 
@@ -593,12 +770,35 @@
                     try {
                         const res = await fetch('/api/config');
                         config.value = await res.json();
+
+                        // Get Server Info
+                        const infoRes = await fetch('/api/info');
+                        if (infoRes.ok) serverInfo.value = await infoRes.json();
+                        const savedRuleId = localStorage.getItem('selectedRuleId');
+                        if (savedRuleId) {
+                            const rule = config.value.rules.find(r => r.id === savedRuleId);
+                            if (rule) selectRule(rule);
+                        }
                     } catch (e) { showToast('加载配置失败', 'error'); }
                 };
 
-                const getTraffic = async (showMessage = false) => {
+                // Persistence logic
+                watch(currentRule, (newRule) => {
+                    if (newRule && newRule.id) {
+                        localStorage.setItem('selectedRuleId', newRule.id);
+                    } else {
+                        localStorage.removeItem('selectedRuleId');
+                    }
+                });
+
+                watch(sidebarWidth, (newWidth) => {
+                    localStorage.setItem('sidebarWidth', newWidth);
+                });
+
+                const getTraffic = async (showMessage = false, silent = false) => {
                     try {
-                        const res = await fetch('/api/traffic');
+                        const url = silent ? '/api/traffic?silent=true' : '/api/traffic';
+                        const res = await fetch(url);
                         if (!res.ok) {
                             console.error('Failed to fetch traffic:', res.status, res.statusText);
                             if (showMessage) {
@@ -647,7 +847,7 @@
                         enabled: true,
                         name: 'API Mock 示例',
                         url: 'http://example.com/api',
-                        matchType: 'exact',
+                        matchType: 'regex',
                         response: {
                             statusCode: 200,
                             headers: { 'Content-Type': 'application/json' },
@@ -686,12 +886,25 @@
                     a.click();
                 };
 
+                const regenerateCA = async () => {
+                    if (confirm('确定重新生成 CA 证书吗？这会导致所有已安装旧证书的设备信任失效。')) {
+                        try {
+                            await fetch('/api/ca/generate', { method: 'POST' });
+                            showToast('CA 证书已重生成');
+                        } catch (e) { showToast('重生成失败', 'error'); }
+                    }
+                };
+
                 const formatTime = (t) => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
                 let timer;
                 onMounted(() => {
+                    // Restore sidebar width
+                    const savedWidth = localStorage.getItem('sidebarWidth');
+                    if (savedWidth) sidebarWidth.value = parseInt(savedWidth);
+
                     getConfig();
-                    timer = setInterval(getTraffic, 2000);
+                    timer = setInterval(() => getTraffic(false, true), 2000);
                 });
 
                 onUnmounted(() => clearInterval(timer));
@@ -699,7 +912,8 @@
                 return {
                     config, traffic, activeTab, ruleSearch, trafficSearch, currentRule, selectedLog, editorMode, toast,
                     filteredRules, filteredTraffic, addRule, deleteRule, selectRule, selectTraffic, saveAll,
-                    exportConfig, createRuleFromTraffic, getTraffic, formatTime
+                    exportConfig, createRuleFromTraffic, getTraffic, formatTime, sidebarWidth, startResizing,
+                    regenerateCA, showHelp, serverInfo
                 };
             }
         }).mount('#app');

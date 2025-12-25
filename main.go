@@ -125,8 +125,9 @@ func (cm *CertManager) generateCA() error {
 	template := x509.Certificate{
 		SerialNumber: serialNumber,
 		Subject: pkix.Name{
-			Organization: []string{"Proxy Mock CA"},
-			CommonName:   "Proxy Mock Root CA",
+			Organization:       []string{"Proxy Mock CA"},
+			OrganizationalUnit: []string{"MITM Development"},
+			CommonName:         "Proxy Mock Root CA",
 		},
 		NotBefore:             time.Now().Add(-24 * time.Hour),
 		NotAfter:              time.Now().AddDate(10, 0, 0),
@@ -142,6 +143,13 @@ func (cm *CertManager) generateCA() error {
 	os.WriteFile("ca.crt", pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: derBytes}), 0644)
 	os.WriteFile("ca.key", pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(priv)}), 0600)
 	return cm.loadCA()
+}
+
+func (cm *CertManager) RegenerateCA() error {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+	cm.certs = make(map[string]*tls.Certificate) // Clear cache
+	return cm.generateCA()
 }
 
 func (cm *CertManager) GetCertificate(host string) (*tls.Certificate, error) {
@@ -168,7 +176,11 @@ func (cm *CertManager) GetCertificate(host string) (*tls.Certificate, error) {
 	serialNumber, _ := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 128))
 	template := x509.Certificate{
 		SerialNumber:          serialNumber,
-		Subject:               pkix.Name{CommonName: host},
+		Subject: pkix.Name{
+			Organization:       []string{"Proxy Mock CA"},
+			OrganizationalUnit: []string{"MITM Development"},
+			CommonName:         host,
+		},
 		NotBefore:             time.Now().Add(-1 * time.Hour),
 		NotAfter:              time.Now().AddDate(1, 0, 0),
 		KeyUsage:              x509.KeyUsageDigitalSignature,
@@ -249,12 +261,13 @@ func handleProxy(w http.ResponseWriter, r *http.Request) {
 		host = r.Host
 	}
 
-	// 如果访问 localhost:9292 或 127.0.0.1:9292，进入管理后台
-	if r.Method != http.MethodConnect && (host == "localhost" || host == "127.0.0.1") {
+	// 代理逻辑 - 只有当 Host 是 localhost:9292 且不是 CONNECT 时才认为是管理后台
+	if r.Method != http.MethodConnect && (host == "localhost" || host == "127.0.0.1") && strings.HasSuffix(r.Host, ":9292") {
 		handleManagementAPI(w, r)
 		return
 	}
 
+	log.Printf("[PROXY] Recv Request: %s %s (Host: %s)", r.Method, r.URL.String(), r.Host)
 	// 代理逻辑
 	if r.Method == http.MethodConnect {
 		handleHTTPSMITM(w, r)
@@ -277,6 +290,11 @@ func handleManagementAPI(w http.ResponseWriter, r *http.Request) {
 	}
 
 	switch r.URL.Path {
+	case "/api/info":
+		json.NewEncoder(w).Encode(map[string]string{
+			"ip":   getLocalIP(),
+			"port": "9292",
+		})
 	case "/":
 		http.ServeFile(w, r, "index.html")
 	case "/vue.global.js":
@@ -286,8 +304,12 @@ func handleManagementAPI(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, "ca.crt")
 	case "/api/traffic":
 		logsMu.Lock()
+		count := len(trafficLogs)
 		json.NewEncoder(w).Encode(trafficLogs)
 		logsMu.Unlock()
+		if r.URL.Query().Get("silent") != "true" {
+			log.Printf("[API] GET /api/traffic - Returned %d logs", count)
+		}
 	case "/api/config":
 		if r.Method == http.MethodGet {
 			configMu.RLock()
@@ -302,6 +324,12 @@ func handleManagementAPI(w http.ResponseWriter, r *http.Request) {
 				saveConfig()
 			}
 		}
+	case "/api/ca/generate":
+		if r.Method == http.MethodPost {
+			if err := certManager.RegenerateCA(); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
+		}
 	default:
 		http.NotFound(w, r)
 	}
@@ -313,6 +341,7 @@ func processRequest(w http.ResponseWriter, r *http.Request, fullURL string) {
 	var mocked bool
 
 	if rule := findMatch(fullURL); rule != nil {
+		log.Printf("[MOCK] Matched rule '%s' for %s", rule.Name, fullURL)
 		for k, v := range rule.Response.Headers {
 			w.Header().Set(k, v)
 		}
@@ -377,8 +406,13 @@ func handleHTTPSMITM(w http.ResponseWriter, r *http.Request) {
 	for {
 		req, err := http.ReadRequest(reader)
 		if err != nil {
+			if err != io.EOF {
+				log.Printf("[MITM] Error reading request from tunnel %s: %v", destHost, err)
+			}
 			break
 		}
+
+		log.Printf("[MITM] Recv Request: %s %s %s", req.Method, req.URL.String(), req.Host)
 
 		req.URL.Scheme = "https"
 		req.URL.Host = destHost
@@ -451,6 +485,21 @@ func forwardRequest(r *http.Request) (*http.Response, error) {
 		outReq.Header.Del(h)
 	}
 	return defaultTransport.RoundTrip(outReq)
+}
+
+func getLocalIP() string {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return "127.0.0.1"
+	}
+	for _, address := range addrs {
+		if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+			if ipnet.IP.To4() != nil {
+				return ipnet.IP.String()
+			}
+		}
+	}
+	return "127.0.0.1"
 }
 
 func main() {
