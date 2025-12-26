@@ -371,14 +371,14 @@
 
         .toast {
             position: fixed;
-            bottom: 20px;
+            top: 20px;
             right: 20px;
             background: #1e293b;
             color: white;
             padding: 0.7rem 1.5rem;
             border-radius: 8px;
             font-size: 0.85rem;
-            transform: translateY(100px);
+            transform: translateY(-100px); /* Adjusted for top positioning */
             transition: 0.3s;
             z-index: 1000;
         }
@@ -466,6 +466,36 @@
             font-weight: bold;
             margin-right: 6px;
         }
+
+        @keyframes new-item-enter {
+            0% {
+                transform: translateY(-50px) scale(0.9);
+                opacity: 0;
+            }
+
+            70% {
+                transform: translateY(0) scale(1.05);
+                opacity: 1;
+            }
+
+            100% {
+                transform: translateY(0) scale(1);
+                opacity: 1;
+            }
+        }
+
+        .list-enter-active {
+            animation: new-item-enter 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .list-leave-active {
+            transition: opacity 0.3s;
+            position: absolute;
+        }
+
+        .list-leave-to {
+            opacity: 0;
+        }
     </style>
 </head>
 
@@ -507,6 +537,7 @@
                         <input type="text" v-model="ruleSearch" placeholder="搜索规则..."
                             style="flex: 1; font-size: 0.8rem;">
                         <button class="btn btn-primary" style="padding: 0.4rem 0.8rem;" @click="addRule">+ 新增</button>
+                        <button class="btn btn-secondary" style="padding: 0.4rem 0.8rem;" @click="toggleAllRules">{{ toggleAllButtonText }}</button>
                     </div>
                     <div v-for="rule in filteredRules" :key="rule.id" class="list-item"
                         :class="{ active: currentRule?.id === rule.id }" @click="selectRule(rule)">
@@ -531,13 +562,20 @@
                             <span style="font-size: 0.75rem; font-weight: 700; color: var(--text-secondary);">实时流量 (最近
                                 100
                                 条)</span>
-                            <button class="btn btn-secondary" style="padding: 0.2rem 0.5rem; font-size: 0.7rem;"
-                                @click.stop="getTraffic(true)">刷新</button>
+                            <div>
+                                <button class="btn btn-secondary" style="padding: 0.2rem 0.5rem; font-size: 0.7rem; margin-right: 0.5rem;"
+                                    @click.stop="getTraffic(true)">刷新</button>
+                                <button class="btn btn-danger" style="padding: 0.2rem 0.5rem; font-size: 0.7rem;"
+                                    @click.stop="clearTraffic">清除</button>
+                                <button class="btn btn-secondary" style="padding: 0.2rem 0.5rem; font-size: 0.7rem; margin-left: 0.5rem;" @click.stop="toggleTrafficPause">{{ isTrafficPaused ? '继续' : '暂停' }}</button>
+                            </div>
                         </div>
                         <input type="text" v-model="trafficSearch" placeholder="搜索流量 (方法, URL)..."
                             style="font-size: 0.8rem; width: 100%;">
                     </div>
-                    <div v-for="log in filteredTraffic" :key="log.id" class="list-item" @click="selectTraffic(log)">
+                    <transition-group name="list" tag="div">
+                    <div v-for="log in filteredTraffic" :key="log.id" class="list-item" @click="selectTraffic(log)"
+                        :style="{ borderLeft: `6px solid ${getColorForString(log.url)}` }">
                         <div class="item-info">
                             <div class="item-title" style="display:flex; align-items:center; gap: 4px;">
                                 <span class="badge-traffic"
@@ -555,6 +593,7 @@
                             <!-- <div style="font-size: 0.55rem">{{ log.duration }}</div> -->
                         </div>
                     </div>
+                    </transition-group>
                     <div v-if="traffic.length === 0"
                         style="padding: 2rem; text-align: center; color: #94a3b8; font-size: 0.8rem;">等待请求进入...</div>
                 </div>
@@ -717,6 +756,7 @@
                 const sidebarWidth = ref(380);
                 const isResizing = ref(false);
                 const serverInfo = ref({ ip: '', port: '' });
+                const isTrafficPaused = ref(false);
 
                 const startResizing = (e) => {
                     isResizing.value = true;
@@ -786,8 +826,6 @@
                 watch(currentRule, (newRule) => {
                     if (newRule && newRule.id) {
                         localStorage.setItem('selectedRuleId', newRule.id);
-                    } else {
-                        localStorage.removeItem('selectedRuleId');
                     }
                 });
 
@@ -869,6 +907,16 @@
                     }
                 };
 
+                const anyRuleEnabled = computed(() => config.value.rules.some(r => r.enabled));
+
+                const toggleAllButtonText = computed(() => anyRuleEnabled.value ? '一键关闭' : '一键开启');
+
+                const toggleAllRules = () => {
+                    const targetState = !anyRuleEnabled.value;
+                    config.value.rules.forEach(rule => rule.enabled = targetState);
+                    saveAll();
+                };
+
                 const createRuleFromTraffic = (log) => {
                     addRule();
                     currentRule.value.url = log.url;
@@ -895,6 +943,34 @@
                     }
                 };
 
+                const clearTraffic = async () => {
+                    try {
+                        const res = await fetch('/api/traffic/clear', { method: 'POST' });
+                        if (res.ok) {
+                            traffic.value = [];
+                            showToast('流量记录已清空');
+                        } else {
+                            showToast('清空失败', 'error');
+                        }
+                    } catch (e) {
+                        showToast('网络错误', 'error');
+                    }
+                };
+
+                const toggleTrafficPause = () => {
+                    isTrafficPaused.value = !isTrafficPaused.value;
+                };
+
+                const getColorForString = (str) => {
+                    let hash = 0;
+                    if (!str) return `hsl(0, 0%, 90%)`;
+                    for (let i = 0; i < str.length; i++) {
+                        hash = str.charCodeAt(i) + ((hash << 5) - hash);
+                    }
+                    const h = hash % 360;
+                    return `hsl(${h}, 60%, 85%)`;
+                };
+
                 const formatTime = (t) => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
                 let timer;
@@ -904,7 +980,11 @@
                     if (savedWidth) sidebarWidth.value = parseInt(savedWidth);
 
                     getConfig();
-                    timer = setInterval(() => getTraffic(false, true), 2000);
+                    timer = setInterval(() => {
+                        if (!isTrafficPaused.value) {
+                            getTraffic(false, true)
+                        }
+                    }, 2000);
                 });
 
                 onUnmounted(() => clearInterval(timer));
@@ -913,7 +993,8 @@
                     config, traffic, activeTab, ruleSearch, trafficSearch, currentRule, selectedLog, editorMode, toast,
                     filteredRules, filteredTraffic, addRule, deleteRule, selectRule, selectTraffic, saveAll,
                     exportConfig, createRuleFromTraffic, getTraffic, formatTime, sidebarWidth, startResizing,
-                    regenerateCA, showHelp, serverInfo
+                    regenerateCA, showHelp, serverInfo, toggleAllRules, toggleAllButtonText, clearTraffic,
+                    isTrafficPaused, toggleTrafficPause, getColorForString
                 };
             }
         }).mount('#app');

@@ -330,6 +330,14 @@ func handleManagementAPI(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 			}
 		}
+	case "/api/traffic/clear":
+		if r.Method == http.MethodPost {
+			logsMu.Lock()
+			trafficLogs = []TrafficLog{}
+			logsMu.Unlock()
+			w.WriteHeader(http.StatusOK)
+			log.Println("[API] POST /api/traffic/clear - Traffic logs cleared")
+		}
 	default:
 		http.NotFound(w, r)
 	}
