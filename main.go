@@ -28,6 +28,7 @@ type MockResponse struct {
 	StatusCode int               `json:"statusCode"`
 	Headers    map[string]string `json:"headers"`
 	Body       string            `json:"body"`
+	Delay      int               `json:"delay"` // New field for response delay in milliseconds
 }
 
 type MockRule struct {
@@ -289,6 +290,11 @@ func handleManagementAPI(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if strings.HasPrefix(r.URL.Path, "/vendor/") {
+		http.StripPrefix("/vendor/", http.FileServer(http.Dir("vendor"))).ServeHTTP(w, r)
+		return
+	}
+
 	switch r.URL.Path {
 	case "/api/info":
 		json.NewEncoder(w).Encode(map[string]string{
@@ -349,6 +355,10 @@ func processRequest(w http.ResponseWriter, r *http.Request, fullURL string) {
 	var mocked bool
 
 	if rule := findMatch(fullURL); rule != nil {
+		if rule.Response.Delay > 0 {
+			log.Printf("[MOCK] Applying delay %dms for rule '%s'", rule.Response.Delay, rule.Name)
+			time.Sleep(time.Duration(rule.Response.Delay) * time.Millisecond)
+		}
 		log.Printf("[MOCK] Matched rule '%s' for %s", rule.Name, fullURL)
 		for k, v := range rule.Response.Headers {
 			w.Header().Set(k, v)
@@ -414,12 +424,60 @@ func handleHTTPSMITM(w http.ResponseWriter, r *http.Request) {
 	for {
 		req, err := http.ReadRequest(reader)
 		if err != nil {
-			if err != io.EOF {
+			if err != io.EOF && !strings.Contains(err.Error(), "use of closed network connection") {
 				log.Printf("[MITM] Error reading request from tunnel %s: %v", destHost, err)
 			}
 			break
 		}
 
+		// *** WebSocket 处理逻辑 ***
+		if strings.ToLower(req.Header.Get("Upgrade")) == "websocket" {
+			log.Printf("[MITM] WebSocket Upgrade detected for %s", destHost)
+			
+			// 1. 连接目标服务器 (使用 processRequest 里的逻辑类似的 Dial)
+			// 注意：这里需要建立 TLS 连接
+			targetConn, err := tls.Dial("tcp", destHost, &tls.Config{InsecureSkipVerify: true})
+			if err != nil {
+				log.Printf("[MITM] WS Dial failed: %v", err)
+				http.Error(w, "WebSocket Dial Failed", http.StatusBadGateway)
+				return
+			}
+			defer targetConn.Close()
+
+			// 2. 将握手请求写入目标服务器
+			// 注意：需要确保请求格式正确，RequestURI 需要是完整路径或相对路径
+			req.URL.Scheme = "https"
+			req.URL.Host = destHost
+			
+			// 修正 RequestURI 为路径形式，避免 Write 报错
+			req.RequestURI = ""
+			if err := req.Write(targetConn); err != nil {
+				log.Printf("[MITM] WS Handshake Write failed: %v", err)
+				return
+			}
+
+			// 3. 将目标服务器的响应写回客户端
+			// 我们需要先读取响应，以确保握手成功，或者直接对接流
+			// 这里直接对接流比较简单，但无法记录握手状态码
+			// 更好的方式是劫持连接后直接进行双向拷贝
+
+			// 启动双向转发
+			errChan := make(chan error, 2)
+			go func() {
+				_, err := io.Copy(targetConn, tlsConn)
+				errChan <- err
+			}()
+			go func() {
+				_, err := io.Copy(tlsConn, targetConn)
+				errChan <- err
+			}()
+
+			<-errChan // 等待一方断开
+			log.Printf("[MITM] WebSocket session closed for %s", destHost)
+			return // WebSocket 结束后退出循环，因为连接已被接管
+		}
+
+		// *** 普通 HTTPS 请求处理逻辑 (原有逻辑) ***
 		log.Printf("[MITM] Recv Request: %s %s %s", req.Method, req.URL.String(), req.Host)
 
 		req.URL.Scheme = "https"
@@ -431,6 +489,10 @@ func handleHTTPSMITM(w http.ResponseWriter, r *http.Request) {
 		mocked := false
 
 		if rule := findMatch(fullURL); rule != nil {
+			if rule.Response.Delay > 0 {
+				log.Printf("[MITM MOCK] Applying delay %dms for rule '%s'", rule.Response.Delay, rule.Name)
+				time.Sleep(time.Duration(rule.Response.Delay) * time.Millisecond)
+			}
 			mocked = true
 			header := make(http.Header)
 			for k, v := range rule.Response.Headers {

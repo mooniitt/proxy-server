@@ -8,6 +8,10 @@
     <link rel="icon"
         href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>">
     <script src="/vue.global.js"></script>
+    <script src="/vendor/ace/ace.js"></script>
+    <script>
+        ace.config.set('basePath', '/vendor/ace');
+    </script>
     <style>
         :root {
             --primary-bg: #f8fafc;
@@ -237,8 +241,17 @@
         }
 
         .editor-content {
-            max-width: 900px;
-            margin: 0 auto;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .editor-scroll-area {
+            flex: 1;
+            overflow-y: auto;
+            padding-right: 0.5rem;
+            /* For scrollbar space */
             display: flex;
             flex-direction: column;
             gap: 1.5rem;
@@ -378,7 +391,8 @@
             padding: 0.7rem 1.5rem;
             border-radius: 8px;
             font-size: 0.85rem;
-            transform: translateY(-100px); /* Adjusted for top positioning */
+            transform: translateY(-100px);
+            /* Adjusted for top positioning */
             transition: 0.3s;
             z-index: 1000;
         }
@@ -531,13 +545,16 @@
                 </div>
 
                 <!-- Rules Tab -->
-                <div v-if="activeTab === 'rules'" class="sidebar-content">
+                <div v-show="activeTab === 'rules'" class="sidebar-content">
                     <div
                         style="padding: 1rem; border-bottom: 1px solid var(--border-color); display: flex; gap: 0.5rem;">
                         <input type="text" v-model="ruleSearch" placeholder="搜索规则..."
                             style="flex: 1; font-size: 0.8rem;">
-                        <button class="btn btn-primary" style="padding: 0.4rem 0.8rem;" @click="addRule">+ 新增</button>
-                        <button class="btn btn-secondary" style="padding: 0.4rem 0.8rem;" @click="toggleAllRules">{{ toggleAllButtonText }}</button>
+                        <button class="btn btn-primary" style="padding: 0.4rem 0.8rem;flex-shrink: 0;"
+                            @click="addRule">+ 新增</button>
+                        <button class="btn btn-secondary" style="padding: 0.4rem 0.8rem;flex-shrink: 0;"
+                            @click="toggleAllRules">{{
+                            toggleAllButtonText }}</button>
                     </div>
                     <div v-for="rule in filteredRules" :key="rule.id" class="list-item"
                         :class="{ active: currentRule?.id === rule.id }" @click="selectRule(rule)">
@@ -555,7 +572,7 @@
                 </div>
 
                 <!-- Traffic Tab -->
-                <div v-if="activeTab === 'traffic'" class="sidebar-content">
+                <div v-show="activeTab === 'traffic'" class="sidebar-content">
                     <div
                         style="padding: 1rem; border-bottom: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 0.8rem;">
                         <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -563,36 +580,39 @@
                                 100
                                 条)</span>
                             <div>
-                                <button class="btn btn-secondary" style="padding: 0.2rem 0.5rem; font-size: 0.7rem; margin-right: 0.5rem;"
+                                <button class="btn btn-secondary"
+                                    style="padding: 0.2rem 0.5rem; font-size: 0.7rem; margin-right: 0.5rem;"
                                     @click.stop="getTraffic(true)">刷新</button>
                                 <button class="btn btn-danger" style="padding: 0.2rem 0.5rem; font-size: 0.7rem;"
                                     @click.stop="clearTraffic">清除</button>
-                                <button class="btn btn-secondary" style="padding: 0.2rem 0.5rem; font-size: 0.7rem; margin-left: 0.5rem;" @click.stop="toggleTrafficPause">{{ isTrafficPaused ? '继续' : '暂停' }}</button>
+                                <button class="btn btn-secondary"
+                                    style="padding: 0.2rem 0.5rem; font-size: 0.7rem; margin-left: 0.5rem;"
+                                    @click.stop="toggleTrafficPause">{{ isTrafficPaused ? '继续' : '暂停' }}</button>
                             </div>
                         </div>
                         <input type="text" v-model="trafficSearch" placeholder="搜索流量 (方法, URL)..."
                             style="font-size: 0.8rem; width: 100%;">
                     </div>
                     <transition-group name="list" tag="div">
-                    <div v-for="log in filteredTraffic" :key="log.id" class="list-item" @click="selectTraffic(log)"
-                        :style="{ borderLeft: `6px solid ${getColorForString(log.url)}` }">
-                        <div class="item-info">
-                            <div class="item-title" style="display:flex; align-items:center; gap: 4px;">
-                                <span class="badge-traffic"
-                                    :style="{ color: log.method === 'POST' ? '#f59e0b' : '#0ea5e9' }">{{ log.method
-                                    }}</span>
-                                <span class="status-badge"
-                                    :class="log.statusCode >= 400 ? 'status-4xx' : 'status-2xx'">{{ log.statusCode
-                                    }}</span>
-                                <span v-if="log.mocked" class="status-badge status-mock">MOCK</span>
+                        <div v-for="log in filteredTraffic" :key="log.id" class="list-item" @click="selectTraffic(log)"
+                            :style="{ borderLeft: `6px solid ${getColorForString(log.url)}` }">
+                            <div class="item-info">
+                                <div class="item-title" style="display:flex; align-items:center; gap: 4px;">
+                                    <span class="badge-traffic"
+                                        :style="{ color: log.method === 'POST' ? '#f59e0b' : '#0ea5e9' }">{{ log.method
+                                        }}</span>
+                                    <span class="status-badge"
+                                        :class="log.statusCode >= 400 ? 'status-4xx' : 'status-2xx'">{{ log.statusCode
+                                        }}</span>
+                                    <span v-if="log.mocked" class="status-badge status-mock">MOCK</span>
+                                </div>
+                                <div class="item-sub">{{ log.url }}</div>
                             </div>
-                            <div class="item-sub">{{ log.url }}</div>
+                            <div style="font-size:0.6rem; color:#94a3b8; text-align: right;">
+                                <div>{{ formatTime(log.time) }}</div>
+                                <!-- <div style="font-size: 0.55rem">{{ log.duration }}</div> -->
+                            </div>
                         </div>
-                        <div style="font-size:0.6rem; color:#94a3b8; text-align: right;">
-                            <div>{{ formatTime(log.time) }}</div>
-                            <!-- <div style="font-size: 0.55rem">{{ log.duration }}</div> -->
-                        </div>
-                    </div>
                     </transition-group>
                     <div v-if="traffic.length === 0"
                         style="padding: 2rem; text-align: center; color: #94a3b8; font-size: 0.8rem;">等待请求进入...</div>
@@ -603,64 +623,142 @@
             <div class="editor-container">
                 <!-- Rule Editor -->
                 <div v-if="editorMode === 'rule' && currentRule" class="editor-content">
-                    <section>
-                        <div class="section-title">基础配置</div>
-                        <div class="grid-2">
-                            <div class="form-group">
-                                <label>规则名称</label>
-                                <input type="text" v-model="currentRule.name">
-                            </div>
-                            <div class="form-group">
-                                <label>激活状态</label>
-                                <div style="display: flex; align-items: center; gap: 0.5rem; height: 100%;">
-                                    <label class="switch">
-                                        <input type="checkbox" v-model="currentRule.enabled">
-                                        <span class="slider"></span>
-                                    </label>
-                                    <span style="font-size: 0.8rem; color: var(--text-secondary)">{{ currentRule.enabled
-                                        ? '已启用' : '已禁用' }}</span>
+                    <div class="editor-scroll-area">
+                        <section>
+                            <div class="section-title">基础配置</div>
+                            <div class="grid-2">
+                                <div class="form-group">
+                                    <label>规则名称</label>
+                                    <input type="text" v-model="currentRule.name">
+                                </div>
+                                <div class="form-group">
+                                    <label>激活状态</label>
+                                    <div style="display: flex; align-items: center; gap: 0.5rem; height: 100%;">
+                                        <label class="switch">
+                                            <input type="checkbox" v-model="currentRule.enabled">
+                                            <span class="slider"></span>
+                                        </label>
+                                        <span style="font-size: 0.8rem; color: var(--text-secondary)">{{
+                                            currentRule.enabled
+                                            ? '已启用' : '已禁用' }}</span>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    </section>
-                    <section>
-                        <div class="section-title">匹配逻辑</div>
-                        <div class="grid-2">
-                            <div class="form-group">
-                                <label>匹配方式</label>
-                                <select v-model="currentRule.matchType">
-                                    <option value="regex">正则匹配 (Regex)</option>
-                                    <option value="exact">精确匹配 (Exact)</option>
-                                    <option value="prefix">前缀匹配 (Prefix)</option>
-                                </select>
+                        </section>
+                        <section>
+                            <div class="section-title">匹配逻辑</div>
+                            <div class="grid-2">
+                                <div class="form-group">
+                                    <label>匹配方式</label>
+                                    <select v-model="currentRule.matchType">
+                                        <option value="regex">正则匹配 (Regex)</option>
+                                        <option value="exact">精确匹配 (Exact)</option>
+                                        <option value="prefix">前缀匹配 (Prefix)</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>URL (支持 http/https)</label>
+                                    <input type="text" v-model="currentRule.url" placeholder="例如: http://api.com/user">
+                                </div>
                             </div>
-                            <div class="form-group">
-                                <label>URL (支持 http/https)</label>
-                                <input type="text" v-model="currentRule.url" placeholder="例如: http://api.com/user">
+                        </section>
+                        <section>
+                            <div class="section-title"
+                                style="display: flex; justify-content: space-between; align-items: center;">
+                                <span>响应 Mock</span>
+                                <span @click="toggleResponseMockCollapse" style="cursor: pointer;">
+                                    <svg v-if="isResponseMockCollapsed" width="16" height="16" fill="none"
+                                        stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M19 9l-7 7-7-7"></path>
+                                    </svg>
+                                    <svg v-else width="16" height="16" fill="none" stroke="currentColor"
+                                        viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M5 15l7-7 7 7"></path>
+                                    </svg>
+                                </span>
                             </div>
-                        </div>
-                    </section>
-                    <section>
-                        <div class="section-title">响应 Mock</div>
-                        <div class="grid-2">
-                            <div class="form-group">
-                                <label>状态码</label>
-                                <input type="number" v-model.number="currentRule.response.statusCode">
+                            <div v-show="!isResponseMockCollapsed">
+                                <div class="grid-2">
+                                    <div class="form-group">
+                                        <label>状态码</label>
+                                        <input type="number" v-model.number="currentRule.response.statusCode">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Content-Type</label>
+                                        <input type="text" list="content-type-options"
+                                            v-model="currentRule.response.headers['Content-Type']"
+                                            placeholder="application/json">
+                                        <datalist id="content-type-options">
+                                            <option value="application/json">JSON</option>
+                                            <option value="text/plain">Text</option>
+                                            <option value="text/html">HTML</option>
+                                            <option value="application/xml">XML</option>
+                                            <option value="application/javascript">JavaScript</option>
+                                            <option value="text/css">CSS</option>
+                                        </datalist>
+                                    </div>
+                                </div>
+
+                                <!-- Advanced Options -->
+                                <div style="margin-top: 1rem;">
+                                    <div @click="isAdvancedCollapsed = !isAdvancedCollapsed"
+                                        style="cursor: pointer; display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; color: var(--blue-main); font-weight: 600;">
+                                        <span>高级选项 (Headers, Delay)</span>
+                                        <svg :style="{ transform: isAdvancedCollapsed ? 'rotate(0deg)' : 'rotate(180deg)', transition: 'transform 0.2s' }"
+                                            width="16" height="16" fill="none" viewBox="0 0 24 24"
+                                            stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M19 9l-7 7-7-7" />
+                                        </svg>
+                                    </div>
+
+                                    <div v-show="!isAdvancedCollapsed"
+                                        style="margin-top: 1rem; padding: 1rem; background: #f8fafc; border-radius: 8px; border: 1px solid var(--border-color);">
+                                        <div class="form-group" style="margin-bottom: 1rem;">
+                                            <label>响应延迟 (ms)</label>
+                                            <input type="number" v-model.number="currentRule.response.delay" min="0"
+                                                placeholder="0 表示无延迟">
+                                        </div>
+
+                                        <div class="form-group">
+                                            <div
+                                                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                                                <label>响应头 (Headers)</label>
+                                                <button class="btn btn-secondary"
+                                                    style="padding: 2px 8px; font-size: 0.7rem;" @click="addHeader">+
+                                                    添加</button>
+                                            </div>
+                                            <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                                                <div v-for="(header, index) in headerList" :key="index"
+                                                    style="display: flex; gap: 0.5rem;">
+                                                    <input type="text" v-model="header.key" placeholder="Key"
+                                                        style="flex: 1;">
+                                                    <input type="text" v-model="header.value" placeholder="Value"
+                                                        style="flex: 1;">
+                                                    <button class="btn btn-danger" style="padding: 0 0.6rem;"
+                                                        @click="removeHeader(index)">×</button>
+                                                </div>
+                                                <div v-if="headerList.length === 0"
+                                                    style="font-size: 0.8rem; color: var(--text-secondary); font-style: italic;">
+                                                    无自定义 Header
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="form-group" style="margin-top: 1.5rem;">
+                                    <label>响应体 (Body)</label>
+                                    <div id="editor"
+                                        style="height: 500px; border-radius: 8px; border: 1px solid var(--border-color);">
+                                    </div>
+                                </div>
                             </div>
-                            <div class="form-group">
-                                <label>Content-Type</label>
-                                <input type="text" v-model="currentRule.response.headers['Content-Type']"
-                                    placeholder="application/json">
-                            </div>
-                        </div>
-                        <div class="form-group" style="margin-top: 1.5rem;">
-                            <label>响应体 (Body)</label>
-                            <textarea v-model="currentRule.response.body"
-                                placeholder="支持 JSON, HTML, 文本等..."></textarea>
-                        </div>
-                    </section>
+                        </section>
+                    </div> <!-- End of scroll area -->
                     <div
-                        style="display:flex; justify-content:space-between; margin-top:2rem; padding: 1rem 0; border-top: 1px solid var(--border-color);">
+                        style="flex-shrink: 0; display:flex; justify-content:space-between; margin-top:1rem; padding-top: 1rem; border-top: 1px solid var(--border-color); background: white;">
                         <button class="btn btn-danger" @click="deleteRule(currentRule.id)">删除此规则</button>
                         <button class="btn btn-primary" @click="saveAll">保存全部配置</button>
                     </div>
@@ -740,7 +838,7 @@
     </div>
 
     <script>
-        const { createApp, ref, computed, onMounted, onUnmounted, watch } = Vue;
+        const { createApp, ref, computed, onMounted, onUnmounted, watch, nextTick } = Vue;
 
         createApp({
             setup() {
@@ -751,12 +849,59 @@
                 const trafficSearch = ref('');
                 const currentRule = ref(null);
                 const selectedLog = ref(null);
-                const editorMode = ref('none'); // 'rule', 'traffic', 'none'
+                const editorMode = ref('none');
                 const showHelp = ref(false);
                 const sidebarWidth = ref(380);
                 const isResizing = ref(false);
                 const serverInfo = ref({ ip: '', port: '' });
                 const isTrafficPaused = ref(false);
+                const editor = ref(null);
+
+                // Advanced Options Refs
+                const isAdvancedCollapsed = ref(true);
+                const headerList = ref([]);
+                let isSyncingHeaders = false;
+
+                const addHeader = () => {
+                    headerList.value.push({ key: '', value: '' });
+                };
+
+                const removeHeader = (index) => {
+                    headerList.value.splice(index, 1);
+                };
+
+                const syncHeadersToList = () => {
+                    if (!currentRule.value) return;
+                    const headers = currentRule.value.response.headers || {};
+                    const list = [];
+                    for (const [key, value] of Object.entries(headers)) {
+                        list.push({ key, value });
+                    }
+                    headerList.value = list;
+                };
+
+                const syncListToHeaders = () => {
+                    if (!currentRule.value) return;
+                    const headers = {};
+                    headerList.value.forEach(h => {
+                        if (h.key) headers[h.key] = h.value;
+                    });
+                    currentRule.value.response.headers = headers;
+                };
+
+                watch(() => currentRule.value?.response.headers, (newVal) => {
+                    if (isSyncingHeaders) return;
+                    isSyncingHeaders = true;
+                    syncHeadersToList();
+                    nextTick(() => isSyncingHeaders = false);
+                }, { deep: true });
+
+                watch(headerList, () => {
+                    if (isSyncingHeaders) return;
+                    isSyncingHeaders = true;
+                    syncListToHeaders();
+                    nextTick(() => isSyncingHeaders = false);
+                }, { deep: true });
 
                 const startResizing = (e) => {
                     isResizing.value = true;
@@ -767,7 +912,6 @@
 
                 const doResize = (e) => {
                     if (!isResizing.value) return;
-                    // Limit width between 250 and 600
                     const newWidth = Math.max(250, Math.min(600, e.clientX));
                     sidebarWidth.value = newWidth;
                 };
@@ -811,7 +955,6 @@
                         const res = await fetch('/api/config');
                         config.value = await res.json();
 
-                        // Get Server Info
                         const infoRes = await fetch('/api/info');
                         if (infoRes.ok) serverInfo.value = await infoRes.json();
                         const savedRuleId = localStorage.getItem('selectedRuleId');
@@ -822,15 +965,59 @@
                     } catch (e) { showToast('加载配置失败', 'error'); }
                 };
 
-                // Persistence logic
-                watch(currentRule, (newRule) => {
+                watch(currentRule, (newRule, oldRule) => {
                     if (newRule && newRule.id) {
                         localStorage.setItem('selectedRuleId', newRule.id);
+
+                        nextTick(() => {
+                            if (!editor.value) {
+                                editor.value = ace.edit("editor");
+                                editor.value.setTheme("ace/theme/tomorrow");
+                                editor.value.setFontSize(14);
+                                editor.value.session.on('change', () => {
+                                    if (currentRule.value) {
+                                        currentRule.value.response.body = editor.value.getValue();
+                                    }
+                                });
+                            }
+
+                            if (newRule.id !== oldRule?.id) {
+                                const contentType = newRule.response.headers['Content-Type'] || 'text/plain';
+                                let mode = 'ace/mode/text';
+                                if (contentType.includes('json')) mode = 'ace/mode/json';
+                                else if (contentType.includes('html')) mode = 'ace/mode/html';
+                                else if (contentType.includes('xml')) mode = 'ace/mode/xml';
+                                else if (contentType.includes('javascript')) mode = 'ace/mode/javascript';
+
+                                editor.value.session.setMode(mode);
+                                editor.value.setValue(newRule.response.body || '', -1);
+                                editor.value.clearSelection();
+                                editor.value.focus();
+                            }
+                        });
+                    } else {
+                        localStorage.removeItem('selectedRuleId');
+                    }
+                });
+
+                watch(() => currentRule.value?.response.headers['Content-Type'], (newContentType) => {
+                    if (editor.value && currentRule.value) {
+                        const contentType = newContentType || 'text/plain';
+                        let mode = 'ace/mode/text';
+                        if (contentType.includes('json')) mode = 'ace/mode/json';
+                        else if (contentType.includes('html')) mode = 'ace/mode/html';
+                        else if (contentType.includes('xml')) mode = 'ace/mode/xml';
+                        else if (contentType.includes('javascript')) mode = 'ace/mode/javascript';
+                        editor.value.session.setMode(mode);
                     }
                 });
 
                 watch(sidebarWidth, (newWidth) => {
                     localStorage.setItem('sidebarWidth', newWidth);
+                });
+
+                watch(activeTab, (newTab) => {
+                    localStorage.setItem('activeTab', newTab);
                 });
 
                 const getTraffic = async (showMessage = false, silent = false) => {
@@ -864,7 +1051,7 @@
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(config.value)
                         });
-                        if (res.ok) showToast('配置已持久化');
+                        if (res.ok) showToast('配置已生效');
                         else showToast('保存失败', 'error');
                     } catch (e) { showToast('网络错误', 'error'); }
                 };
@@ -889,7 +1076,8 @@
                         response: {
                             statusCode: 200,
                             headers: { 'Content-Type': 'application/json' },
-                            body: '{"status": "ok"}'
+                            body: '{"status": "ok"}',
+                            delay: 0 // New: Initialize delay
                         }
                     };
                     config.value.rules.unshift(newRule);
@@ -901,7 +1089,6 @@
                         config.value.rules = config.value.rules.filter(r => r.id !== id);
                         currentRule.value = null;
                         editorMode.value = 'none';
-                        // Save the updated config to server
                         await saveAll();
                         showToast('已删除');
                     }
@@ -975,9 +1162,13 @@
 
                 let timer;
                 onMounted(() => {
-                    // Restore sidebar width
                     const savedWidth = localStorage.getItem('sidebarWidth');
                     if (savedWidth) sidebarWidth.value = parseInt(savedWidth);
+
+                    const savedTab = localStorage.getItem('activeTab');
+                    if (savedTab) {
+                        activeTab.value = savedTab;
+                    }
 
                     getConfig();
                     timer = setInterval(() => {
@@ -994,7 +1185,8 @@
                     filteredRules, filteredTraffic, addRule, deleteRule, selectRule, selectTraffic, saveAll,
                     exportConfig, createRuleFromTraffic, getTraffic, formatTime, sidebarWidth, startResizing,
                     regenerateCA, showHelp, serverInfo, toggleAllRules, toggleAllButtonText, clearTraffic,
-                    isTrafficPaused, toggleTrafficPause, getColorForString
+                    isTrafficPaused, toggleTrafficPause, getColorForString,
+                    isAdvancedCollapsed, headerList, addHeader, removeHeader
                 };
             }
         }).mount('#app');

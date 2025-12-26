@@ -10,13 +10,20 @@
 - **现代化 UI**：内置 Vue 3 后台，支持实时流量监控、规则管理、证书重置等。
 - **自动保存**：所有规则改动即时生效，无需重启。
 
+## 环境要求
+
+- [Go 1.16+](https://golang.google.cn/doc/install)
+
+---
+
 ## 快速开始
 
-### 1. 运行服务
+### 1. 运行服务 (开发模式)
+在项目根目录运行：
 ```bash
-./restart.sh
+./pg.sh run
 ```
-服务默认运行在 `:9292` 端口。
+服务默认运行在 `:9292` 端口。此方式适合开发调试。
 
 ### 2. 管理后台
 访问 [http://localhost:9292](http://localhost:9292)。
@@ -25,6 +32,50 @@
 将您的设备（手机或浏览器）代理设置为：
 - **IP**: 您的机器 IP
 - **端口**: `9292`
+
+---
+
+## 构建 (Build)
+
+您可以编译为当前系统或跨平台的可执行文件。
+
+### 编译为当前操作系统
+```bash
+go build -o proxy-server main.go
+```
+然后运行：`./proxy-server` (macOS/Linux) 或 `proxy-server.exe` (Windows)。
+
+### 跨平台编译
+例如，为 Windows 编译：
+```bash
+GOOS=windows GOARCH=amd64 go build -o proxy-server.exe main.go
+```
+为 macOS 编译：
+```bash
+GOOS=darwin GOARCH=amd64 go build -o proxy-server-macos main.go
+```
+为 Linux 编译：
+```bash
+GOOS=linux GOARCH=amd64 go build -o proxy-server-linux main.go
+```
+更多 `GOOS` 和 `GOARCH` 组合请参考 Go 官方文档。
+
+### 通过 Homebrew 安装 (macOS/Linux)
+
+1.  **准备 Formula**:
+    *   将项目根目录下的 `proxy-server.rb` 文件放置到您自己的 Homebrew Tap 仓库中 (例如 `your-github-user/homebrew-tap`)。
+    *   编辑 `proxy-server.rb`，将 `homepage`, `url` 和 `sha256` 替换为您的项目信息和发布存档的实际值。`sha256` 可以通过 `curl -L <url_to_archive> | shasum -a 256` 命令获取。
+2.  **添加 Tap 并安装**:
+    ```bash
+    brew tap your-github-user/tap # 替换为您的 tap 名称
+    brew install proxy-server
+    ```
+3.  **启动服务**:
+    ```bash
+    proxy-server # 直接运行二进制文件
+    ```
+
+> `pg.sh` 脚本适用于 Unix-like 系统 (macOS/Linux)，主要用于开发过程中便捷地停止、重建并重启服务。
 
 ---
 
