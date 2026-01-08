@@ -4,3 +4,5 @@ config.json
 .dist
 server.log
 proxy-server
+node_modules
+dist
