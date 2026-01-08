@@ -1,0 +1,57 @@
+#!/bin/bash
+
+# 帮助信息
+show_help() {
+    echo "使用方法: ./proxy [命令]"
+    echo ""
+    echo "可用命令:"
+    echo "  run      启动服务 (会自动检查并构建前端)"
+    echo "  stop     停止服务"
+    echo "  restart  重启服务"
+    echo "  build    强制重新构建前端并启动"
+    echo "  log      查看实时日志"
+    echo "  help     显示此帮助信息"
+    echo ""
+}
+
+# 检查参数
+if [ -z "$1" ]; then
+    show_help
+    exit 1
+fi
+
+COMMAND=$1
+
+case "$COMMAND" in
+    "run")
+        # 传递剩余参数给 run.sh
+        ./run.sh "${@:2}"
+        ;;
+    "stop")
+        ./stop.sh
+        ;;
+    "restart")
+        ./stop.sh
+        sleep 1
+        ./run.sh
+        ;;
+    "build")
+        ./run.sh --build-ui
+        ;;
+    "log")
+        if [ -f "server.log" ]; then
+            tail -f server.log
+        else
+            echo "日志文件 server.log 不存在"
+        fi
+        ;;
+    "help"|"--help"|"-h")
+        show_help
+        ;;
+    *)
+        echo "❌ 未知命令: $COMMAND"
+        echo ""
+        show_help
+        exit 1
+        ;;
+esac

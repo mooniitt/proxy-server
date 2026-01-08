@@ -4,25 +4,45 @@
       <div class="header-top">
         <span class="title">实时流量 (最近 100 条)</span>
         <div class="controls">
-          <button class="btn btn-secondary btn-sm" @click="emit('refresh')">刷新</button>
-          <button class="btn btn-danger btn-sm" @click="emit('clear')">清除</button>
+          <button class="btn btn-secondary btn-sm" @click="emit('refresh')">
+            刷新
+          </button>
+          <button class="btn btn-danger btn-sm" @click="emit('clear')">
+            清除
+          </button>
           <button class="btn btn-secondary btn-sm" @click="emit('togglePause')">
-            {{ isPaused ? '继续' : '暂停' }}
+            {{ isPaused ? "继续" : "暂停" }}
           </button>
         </div>
       </div>
-      <input type="text" v-model="search" placeholder="搜索流量 (方法, URL)..." class="search-input">
+      <input
+        type="text"
+        v-model="search"
+        placeholder="搜索流量 (方法, URL)..."
+        class="search-input"
+      />
     </div>
-    
+
     <transition-group name="list" tag="div">
-      <div v-for="log in filteredTraffic" :key="log.id" class="list-item" @click="emit('select', log)"
-           :style="{ borderLeft: `6px solid ${getColorForString(log.url)}` }">
+      <div
+        v-for="log in filteredTraffic"
+        :key="log.id"
+        class="list-item"
+        @click="emit('select', log)"
+        :style="{ borderLeft: `6px solid ${getColorForString(log.url)}` }"
+      >
         <div class="item-info">
           <div class="item-title">
-            <span class="badge-traffic" :style="{ color: log.method === 'POST' ? '#f59e0b' : '#0ea5e9' }">
+            <span
+              class="badge-traffic"
+              :style="{ color: log.method === 'POST' ? '#f59e0b' : '#0ea5e9' }"
+            >
               {{ log.method }}
             </span>
-            <span class="status-badge" :class="log.statusCode >= 400 ? 'status-4xx' : 'status-2xx'">
+            <span
+              class="status-badge"
+              :class="log.statusCode >= 400 ? 'status-4xx' : 'status-2xx'"
+            >
               {{ log.statusCode }}
             </span>
             <span v-if="log.mocked" class="status-badge status-mock">MOCK</span>
@@ -34,38 +54,44 @@
         </div>
       </div>
     </transition-group>
-    
+
     <div v-if="traffic.length === 0" class="empty-msg">等待请求进入...</div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed } from "vue";
 
-const props = defineProps(['traffic', 'isPaused'])
-const emit = defineEmits(['refresh', 'clear', 'togglePause', 'select'])
-const search = ref('')
+const props = defineProps(["traffic", "isPaused"]);
+const emit = defineEmits(["refresh", "clear", "togglePause", "select"]);
+const search = ref("");
 
 const filteredTraffic = computed(() => {
-  const s = search.value.toLowerCase()
-  if (!s) return props.traffic
-  return props.traffic.filter(log =>
-    log.method.toLowerCase().includes(s) ||
-    log.url.toLowerCase().includes(s) ||
-    String(log.statusCode).includes(s)
-  )
-})
+  const s = search.value.toLowerCase();
+  if (!s) return props.traffic;
+  return props.traffic.filter(
+    (log) =>
+      log.method.toLowerCase().includes(s) ||
+      log.url.toLowerCase().includes(s) ||
+      String(log.statusCode).includes(s)
+  );
+});
 
 const getColorForString = (str) => {
-  let hash = 0
-  if (!str) return `hsl(0, 0%, 90%)`
+  let hash = 0;
+  if (!str) return `hsl(0, 0%, 90%)`;
   for (let i = 0; i < str.length; i++) {
-    hash = str.charCodeAt(i) + ((hash << 5) - hash)
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
   }
-  return `hsl(${hash % 360}, 60%, 85%)`
-}
+  return `hsl(${hash % 360}, 60%, 85%)`;
+};
 
-const formatTime = (t) => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+const formatTime = (t) =>
+  new Date(t).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
 </script>
 
 <style scoped>
@@ -141,8 +167,8 @@ const formatTime = (t) => new Date(t).toLocaleTimeString([], { hour: '2-digit', 
 }
 
 .item-title {
-  display:flex;
-  align-items:center;
+  display: flex;
+  align-items: center;
   gap: 4px;
   margin-bottom: 0.2rem;
 }
@@ -175,9 +201,32 @@ const formatTime = (t) => new Date(t).toLocaleTimeString([], { hour: '2-digit', 
   font-weight: 700;
 }
 
-.status-2xx { background: #dcfce7; color: #166534; }
-.status-4xx, .status-5xx { background: #fee2e2; color: #991b1b; }
-.status-mock { border: 1px solid var(--blue-main); color: var(--blue-main); }
+.status-2xx {
+  background: #dcfce7;
+  color: #166534;
+}
+.status-4xx,
+.status-5xx {
+  background: #fee2e2;
+  color: #991b1b;
+}
+.status-mock {
+  border: 1px solid var(--blue-main);
+  color: var(--blue-main);
+}
+
+/* Instant leave for clearing */
+.list-leave-active {
+  display: none !important;
+  transition: none !important;
+  animation: none !important;
+  position: absolute;
+  width: 100%;
+}
+
+.list-leave-to {
+  opacity: 0;
+}
 
 .empty-msg {
   padding: 2rem;

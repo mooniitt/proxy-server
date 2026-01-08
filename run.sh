@@ -12,6 +12,9 @@ BUILD_UI=false
 if [ ! -d "dist" ]; then
     echo "⚠️  未检测到 dist 目录，准备构建前端..."
     BUILD_UI=true
+else
+    # 这一行是新增的提示，让用户安心
+    echo "✅ 检测到内置前端资源 (dist)，跳过 UI 构建"
 fi
 
 for arg in "$@"; do
