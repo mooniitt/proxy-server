@@ -498,23 +498,75 @@
             }
         }
 
-        .list-enter-active {
-            animation: new-item-enter 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        /* Intro Animation Styles */
+        .intro-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at center, #ffffff 0%, #f1f5f9 100%);
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
         }
 
-        .list-leave-active {
-            transition: opacity 0.3s;
-            position: absolute;
-        }
-
-        .list-leave-to {
+        .intro-overlay.fade-out {
             opacity: 0;
+            transition: opacity 0.5s ease;
+            pointer-events: none;
+        }
+
+        .intro-text {
+            display: flex;
+            gap: 1.5rem;
+            font-size: 5.5vw; /* Increased size */
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: -2px; /* Tighter tracking for letters */
+            line-height: 1;
+        }
+
+        .intro-word-group {
+            display: flex;
+            white-space: nowrap; /* Keep letters of a word together */
+        }
+
+        .intro-char {
+            opacity: 0;
+            display: inline-block;
+            transform: translateY(40px) scale(0.8);
+            animation: intro-reveal 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+            text-shadow: 0 10px 20px rgba(14, 165, 233, 0.2);
+        }
+
+        @keyframes intro-reveal {
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
         }
     </style>
 </head>
 
 <body>
     <div id="app">
+        <!-- Intro Animation -->
+        <div v-if="showIntro" class="intro-overlay" :class="{ 'fade-out': startExit }">
+            <div class="intro-text">
+                <div v-for="(group, gIdx) in introData" :key="gIdx" class="intro-word-group" :style="{ color: group.color }">
+                    <span v-for="(char, cIdx) in group.text" 
+                          :key="cIdx" 
+                          class="intro-char"
+                          :style="{ animationDelay: (group.offset + cIdx) * 0.05 + 's' }">
+                        {{ char }}
+                    </span>
+                </div>
+            </div>
+        </div>
+
         <div class="toast" :class="{ show: toast.visible }" :style="{ background: toast.bg }">{{ toast.msg }}</div>
 
         <header>
@@ -843,6 +895,19 @@
         createApp({
             setup() {
                 const config = ref({ rules: [] });
+                // Intro Animation Refs
+                const showIntro = ref(false);
+                const startExit = ref(false);
+                
+                // Offset calculation: 
+                // Proxy (5 chars) -> next starts at 5
+                // Mock (4 chars) -> next starts at 9
+                const introData = [
+                    { text: 'Proxy', color: 'var(--blue-dark)', offset: 0 },
+                    { text: 'Mock', color: 'var(--blue-main)', offset: 6 }, // Add small gap (1 char time) between words
+                    { text: 'Dashboard', color: 'var(--text-main)', offset: 11 }
+                ];
+
                 const traffic = ref([]);
                 const activeTab = ref('rules');
                 const ruleSearch = ref('');
@@ -1162,6 +1227,21 @@
 
                 let timer;
                 onMounted(() => {
+                    // Always show intro animation
+                    showIntro.value = true;
+                    
+                    // Animation sequence:
+                    // 0s - 0.5s: Words stagger in
+                    // 0.5s - 1.5s: Hold
+                    // 1.5s: Start fade out
+                    setTimeout(() => {
+                        startExit.value = true;
+                        // Wait for fade out transition (0.5s) to finish before removing from DOM
+                        setTimeout(() => {
+                            showIntro.value = false;
+                        }, 500);
+                    }, 1500);
+
                     const savedWidth = localStorage.getItem('sidebarWidth');
                     if (savedWidth) sidebarWidth.value = parseInt(savedWidth);
 
@@ -1186,7 +1266,8 @@
                     exportConfig, createRuleFromTraffic, getTraffic, formatTime, sidebarWidth, startResizing,
                     regenerateCA, showHelp, serverInfo, toggleAllRules, toggleAllButtonText, clearTraffic,
                     isTrafficPaused, toggleTrafficPause, getColorForString,
-                    isAdvancedCollapsed, headerList, addHeader, removeHeader
+                    isAdvancedCollapsed, headerList, addHeader, removeHeader,
+                    showIntro, startExit, introData
                 };
             }
         }).mount('#app');
