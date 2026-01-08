@@ -9,7 +9,7 @@
 
 ### 2. 静态资源文件
 - ✅ `index.html` (49KB) - 存在
-- ✅ `vue.global.js` (561KB) - 存在  
+- ✅ `vue.global.js` (561KB) - 存在（前端框架库）  
 - ✅ `vendor/` 目录 - 存在
   - `vendor/ace/ace.js`
   - `vendor/ace/mode-html.js`

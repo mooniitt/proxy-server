@@ -93,7 +93,7 @@ GitHub Actions 会自动：
 proxy-server-{os}-{arch}/
 ├── proxy-server[.exe]    # 可执行文件
 ├── index.html            # 前端页面
-├── vue.global.js         # Vue 3 库
+├── vue.global.js         # 前端框架库
 ├── vendor/               # Ace Editor 等静态资源
 │   └── ace/
 │       ├── ace.js
