@@ -86,19 +86,19 @@ jobs:
           fi
           
           # 创建 README
-          cat > "${PKG_DIR}/README.txt" << EOF
-Proxy Mock Server ${VERSION}
-============================
-
-快速启动：
-1. 双击运行 proxy-server${EXT}（或在终端执行：./proxy-server${EXT}）
-2. 浏览器会自动打开 http://localhost:9292
-3. 将您的设备代理设置为：机器IP:9292
-
-无需安装任何依赖！
-
-详细文档：https://github.com/mooniitt/proxy-server
-EOF
+          {
+            echo "Proxy Mock Server ${VERSION}"
+            echo "============================"
+            echo ""
+            echo "快速启动："
+            echo "1. 双击运行 proxy-server${EXT}（或在终端执行：./proxy-server${EXT}）"
+            echo "2. 浏览器会自动打开 http://localhost:9292"
+            echo "3. 将您的设备代理设置为：机器IP:9292"
+            echo ""
+            echo "无需安装任何依赖！"
+            echo ""
+            echo "详细文档：https://github.com/mooniitt/proxy-server"
+          } > "${PKG_DIR}/README.txt"
           
           # 打包
           if [ "$OS" == "windows" ]; then
