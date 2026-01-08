@@ -1,0 +1,177 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'  # 当推送 v 开头的 tag 时触发（如 v1.0.0）
+  workflow_dispatch:  # 允许手动触发
+    inputs:
+      version:
+        description: '版本号 (例如: v1.0.0)'
+        required: true
+        default: 'v1.0.0'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # 需要权限来创建 releases
+    
+    strategy:
+      matrix:
+        include:
+          - os: windows
+            arch: amd64
+            ext: .exe
+          - os: windows
+            arch: arm64
+            ext: .exe
+          - os: darwin
+            arch: amd64
+            ext: ''
+          - os: darwin
+            arch: arm64
+            ext: ''
+          - os: linux
+            arch: amd64
+            ext: ''
+          - os: linux
+            arch: arm64
+            ext: ''
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.18'
+      
+      - name: Get version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Build
+        env:
+          GOOS: ${{ matrix.os }}
+          GOARCH: ${{ matrix.arch }}
+        run: |
+          go build -ldflags="-s -w" -o proxy-server${{ matrix.ext }} main.go
+      
+      - name: Create release package
+        run: |
+          APP_NAME="proxy-server"
+          OS="${{ matrix.os }}"
+          ARCH="${{ matrix.arch }}"
+          EXT="${{ matrix.ext }}"
+          VERSION="${{ steps.version.outputs.version }}"
+          
+          # 创建目录
+          PKG_DIR="${APP_NAME}-${OS}-${ARCH}"
+          mkdir -p "${PKG_DIR}"
+          
+          # 移动可执行文件
+          mv "proxy-server${EXT}" "${PKG_DIR}/"
+          
+          # 复制静态资源
+          cp -r index.html vue.global.js vendor "${PKG_DIR}/" 2>/dev/null || true
+          if [ -f "config.json" ]; then
+            cp config.json "${PKG_DIR}/"
+          fi
+          
+          # 创建 README
+          cat > "${PKG_DIR}/README.txt" << EOF
+Proxy Mock Server ${VERSION}
+============================
+
+快速启动：
+1. 双击运行 proxy-server${EXT}（或在终端执行：./proxy-server${EXT}）
+2. 浏览器会自动打开 http://localhost:9292
+3. 将您的设备代理设置为：机器IP:9292
+
+无需安装任何依赖！
+
+详细文档：https://github.com/mooniitt/proxy-server
+EOF
+          
+          # 打包
+          if [ "$OS" == "windows" ]; then
+            zip -rq "${PKG_DIR}.zip" "${PKG_DIR}"
+            echo "asset_name=${PKG_DIR}.zip" >> $GITHUB_OUTPUT
+          else
+            tar -czf "${PKG_DIR}.tar.gz" "${PKG_DIR}"
+            echo "asset_name=${PKG_DIR}.tar.gz" >> $GITHUB_OUTPUT
+          fi
+        id: package
+      
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.package.outputs.asset_name }}
+          path: ${{ steps.package.outputs.asset_name }}
+          retention-days: 5
+  
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Get version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+      
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.version.outputs.version }}
+          name: Release ${{ steps.version.outputs.version }}
+          body: |
+            ## Proxy Mock Server ${{ steps.version.outputs.version }}
+            
+            ### 📦 下载
+            请根据您的操作系统下载对应的压缩包：
+            
+            - **macOS (Intel)**: `proxy-server-darwin-amd64.tar.gz`
+            - **macOS (Apple Silicon)**: `proxy-server-darwin-arm64.tar.gz`
+            - **Linux (x64)**: `proxy-server-linux-amd64.tar.gz`
+            - **Linux (ARM64)**: `proxy-server-linux-arm64.tar.gz`
+            - **Windows (x64)**: `proxy-server-windows-amd64.zip`
+            - **Windows (ARM64)**: `proxy-server-windows-arm64.zip`
+            
+            ### 🚀 快速开始
+            1. 解压下载的压缩包
+            2. 双击运行 `proxy-server`（Windows 为 `proxy-server.exe`）
+            3. 浏览器会自动打开 http://localhost:9292
+            
+            ### 📝 说明
+            - ✅ 无需安装任何依赖（Go、Node.js、Rust 等都不需要）
+            - ✅ 单一可执行文件，开箱即用
+            - ✅ 所有静态资源已包含在内
+            
+            详细文档请访问: https://github.com/mooniitt/proxy-server
+          files: |
+            ./artifacts/**/*.tar.gz
+            ./artifacts/**/*.zip
+          draft: false
+          prerelease: false

@@ -9,10 +9,36 @@
 - **API Mocking**：通过正则、精确匹配或前缀匹配拦截并篡改 API 返回。
 - **现代化 UI**：内置 Vue 3 后台，支持实时流量监控、规则管理、证书重置等。
 - **自动保存**：所有规则改动即时生效，无需重启。
+- **零依赖部署**：单一可执行文件，无需 Node.js、npm 或其他运行时。
+
+## 技术架构
+
+- **后端**：Go 语言（单一可执行文件）
+- **前端**：Vue 3 (CDN) + Ace Editor
+- **部署**：开箱即用，无需安装任何依赖
+- **配置**：JSON 文件存储，实时热重载
 
 ## 环境要求
 
+### 💡 零依赖运行（推荐给用户）
+
+用户可以直接下载预编译的二进制文件运行：
+
+1. 从 [Releases](https://github.com/mooniitt/proxy-server/releases) 下载对应平台的压缩包
+2. 解压后双击运行或执行 `./proxy-server`
+3. 浏览器自动打开管理界面
+
+支持平台：
+- ✅ macOS (Intel / Apple Silicon)
+- ✅ Linux (x64 / ARM64)
+- ✅ Windows (x64 / ARM64)
+
+### 开发环境
+
+如果你需要修改代码或从源码构建：
 - [Go 1.16+](https://golang.google.cn/doc/install)
+
+前端使用 CDN 版本的 Vue 3，无需 Node.js 环境。
 
 ---
 
@@ -76,30 +102,80 @@ proxy-server
 
 ---
 
-## 构建 (Build)
+## 构建与分发
 
-您可以编译为当前系统或跨平台的可执行文件。
+### 一键构建所有平台（推荐）
 
-### 编译为当前操作系统
+使用自动化构建脚本，一次性生成所有平台的可分发包：
+
+```bash
+./build.sh v1.0.0
+```
+
+这会在 `build/` 目录生成以下压缩包：
+- `proxy-server-darwin-amd64.tar.gz` (macOS Intel)
+- `proxy-server-darwin-arm64.tar.gz` (macOS Apple Silicon)
+- `proxy-server-linux-amd64.tar.gz` (Linux x64)
+- `proxy-server-linux-arm64.tar.gz` (Linux ARM64)
+- `proxy-server-windows-amd64.zip` (Windows x64)
+- `proxy-server-windows-arm64.zip` (Windows ARM64)
+
+每个压缩包包含：
+- ✅ 可执行文件（无需任何依赖）
+- ✅ 所有静态资源（HTML、JS、CSS）
+- ✅ 使用说明
+
+**用户只需解压后直接运行，零依赖！**
+
+### 创建 GitHub Releases
+
+#### 方式一：自动化发布（推荐）✨
+
+使用 GitHub Actions 自动构建和发布：
+
+```bash
+# 1. 创建并推送 tag
+git tag v1.0.0
+git push origin main
+git push origin v1.0.0
+```
+
+GitHub Actions 会自动构建所有平台并创建 Release。
+
+#### 方式二：手动构建
+
+```bash
+# 1. 本地构建所有平台
+./build.sh v1.0.0
+
+# 2. 在 GitHub 上创建 Release
+# 访问 https://github.com/mooniitt/proxy-server/releases/new
+# 上传 build/ 目录下的所有压缩包
+```
+
+📖 **详细说明**：查看 [RELEASE.md](./RELEASE.md) 了解完整的发布流程。
+
+### 手动编译单个平台
+
+#### 编译为当前操作系统
 ```bash
 go build -o proxy-server main.go
 ```
-然后运行：`./proxy-server` (macOS/Linux) 或 `proxy-server.exe` (Windows)。
 
-### 跨平台编译
-例如，为 Windows 编译：
+#### 跨平台编译
 ```bash
+# Windows
 GOOS=windows GOARCH=amd64 go build -o proxy-server.exe main.go
-```
-为 macOS 编译：
-```bash
+
+# macOS (Intel)
 GOOS=darwin GOARCH=amd64 go build -o proxy-server-macos main.go
-```
-为 Linux 编译：
-```bash
+
+# macOS (Apple Silicon)
+GOOS=darwin GOARCH=arm64 go build -o proxy-server-macos-arm64 main.go
+
+# Linux
 GOOS=linux GOARCH=amd64 go build -o proxy-server-linux main.go
 ```
-更多 `GOOS` 和 `GOARCH` 组合请参考 Go 官方文档。
 
 ### 通过 Homebrew 安装 (macOS/Linux)
 
