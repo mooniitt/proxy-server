@@ -290,8 +290,9 @@ func handleManagementAPI(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if strings.HasPrefix(r.URL.Path, "/vendor/") {
-		http.StripPrefix("/vendor/", http.FileServer(http.Dir("vendor"))).ServeHTTP(w, r)
+	// Serve static assets from "dist/assets"
+	if strings.HasPrefix(r.URL.Path, "/assets/") {
+		http.StripPrefix("/assets/", http.FileServer(http.Dir("dist/assets"))).ServeHTTP(w, r)
 		return
 	}
 
@@ -302,9 +303,7 @@ func handleManagementAPI(w http.ResponseWriter, r *http.Request) {
 			"port": "9292",
 		})
 	case "/":
-		http.ServeFile(w, r, "index.html")
-	case "/vue.global.js":
-		http.ServeFile(w, r, "vue.global.js")
+		http.ServeFile(w, r, "dist/index.html")
 	case "/ca.crt":
 		w.Header().Set("Content-Type", "application/x-x509-ca-cert")
 		http.ServeFile(w, r, "ca.crt")

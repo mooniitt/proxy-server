@@ -7,6 +7,49 @@ URL="http://localhost:$PORT"
 
 echo "==== [$(date '+%Y-%m-%d %H:%M:%S')] 启动代理服务 ===="
 
+# 0. 构建前端逻辑
+BUILD_UI=false
+if [ ! -d "dist" ]; then
+    echo "⚠️  未检测到 dist 目录，准备构建前端..."
+    BUILD_UI=true
+fi
+
+for arg in "$@"; do
+    if [ "$arg" == "--build-ui" ]; then
+        echo "🔄 用户请求强制重新构建 UI..."
+        BUILD_UI=true
+    fi
+done
+
+if [ "$BUILD_UI" = true ]; then
+    if command -v npm >/dev/null 2>&1; then
+        echo "📦 进入 dashboard 目录..."
+        cd dashboard
+        
+        if [ ! -d "node_modules" ]; then
+             echo "📦 node_modules 不存在，正在安装依赖 (npm install)..."
+             npm install
+             if [ $? -ne 0 ]; then
+                 echo "❌ npm install 失败！"
+                 exit 1
+             fi
+        fi
+
+        echo "📦 正在构建前端 (npm run build)..."
+        npm run build
+        if [ $? -ne 0 ]; then
+             echo "❌ 前端构建失败！"
+             exit 1
+        fi
+        
+        cd ..
+        echo "✅ 前端构建成功"
+    else
+        echo "❌ 未找到 npm 命令！无法构建前端。请先安装 Node.js 或手动将构建好的 dist 目录放入根目录。"
+        exit 1
+    fi
+fi
+
 # 1. 检查是否已有进程在运行
 PID=$(pgrep -f "./$APP_NAME")
 if [ -n "$PID" ]; then
