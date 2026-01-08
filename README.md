@@ -20,25 +20,78 @@
 
 ## 环境要求
 
-### 💡 零依赖运行（推荐给用户）
+### 💡 用户使用（无需 Go 环境）
 
-用户可以直接下载预编译的二进制文件运行：
+**如果你只是想使用代理服务器，不需要安装 Go！**
 
-1. 从 [Releases](https://github.com/mooniitt/proxy-server/releases) 下载对应平台的压缩包
-2. 解压后双击运行或执行 `./proxy-server`
-3. 浏览器自动打开管理界面
+#### 使用预编译的二进制文件
 
-支持平台：
-- ✅ macOS (Intel / Apple Silicon)
-- ✅ Linux (x64 / ARM64)
-- ✅ Windows (x64 / ARM64)
+1. **获取预编译的二进制文件**：
+   - 从项目仓库获取已编译好的 `proxy-server` 可执行文件
+   - 或请有 Go 环境的开发者帮你编译（见下方"从源码构建"）
 
-### 开发环境
+2. **运行服务**：
+   ```bash
+   # macOS/Linux
+   chmod +x proxy-server
+   ./proxy-server
+   
+   # Windows
+   proxy-server.exe
+   ```
 
-如果你需要修改代码或从源码构建：
-- [Go 1.16+](https://golang.google.cn/doc/install)
+3. **访问管理后台**：
+   - 浏览器会自动打开 http://localhost:9292
+   - 或手动访问该地址
 
-前端使用现代化 Web 技术，无需 Node.js 环境。
+**特点**：
+- ✅ 单一可执行文件，无需任何依赖
+- ✅ 无需安装 Go、Node.js 或其他运行时
+- ✅ 开箱即用，直接运行
+
+---
+
+### 🔧 从源码构建（需要 Go 环境）
+
+如果你需要修改代码或从源码构建，**必须先安装 Go 环境**：
+
+#### 1. 安装 Go
+
+**macOS:**
+```bash
+# 使用 Homebrew
+brew install go
+
+# 或从官网下载
+# 访问 https://golang.google.cn/dl/ 下载安装包
+```
+
+**Linux:**
+```bash
+# Ubuntu/Debian
+sudo apt update
+sudo apt install golang-go
+
+# 或从官网下载
+# 访问 https://golang.google.cn/dl/ 下载对应版本的 tar.gz
+```
+
+**Windows:**
+1. 访问 https://golang.google.cn/dl/
+2. 下载 Windows 安装包（.msi）
+3. 运行安装程序，按提示完成安装
+
+**验证安装：**
+```bash
+go version
+# 应该显示：go version go1.16.x 或更高版本
+```
+
+#### 2. 从源码构建
+
+安装 Go 后，可以按照下方"构建与分发"部分的说明进行编译。
+
+**注意**：前端使用现代化 Web 技术，无需 Node.js 环境。
 
 ---
 
@@ -46,14 +99,30 @@
 
 ### 1. 运行服务
 
-#### 方式一：一键启动（推荐）✨
-在项目根目录运行，自动启动服务并打开浏览器：
+#### 方式一：直接运行二进制文件（推荐，无需 Go 环境）✨
+
+如果你已经有预编译的二进制文件：
+
 ```bash
-./run.sh
+# macOS/Linux
+chmod +x proxy-server
+./proxy-server
+
+# Windows
+proxy-server.exe
 ```
 
-或使用 bin 命令：
+服务会自动启动并打开浏览器访问管理后台。
+
+#### 方式二：使用启动脚本（需要源码，推荐开发使用）
+
+如果你从源码运行，可以使用启动脚本：
+
 ```bash
+# 一键启动（自动编译并启动）
+./run.sh
+
+# 或使用 bin 命令
 ./bin/proxy-server
 ```
 
@@ -64,13 +133,13 @@
 - ✅ 自动打开浏览器访问管理后台
 - ✅ 跨平台支持（macOS/Linux/Windows）
 
-#### 方式二：开发模式
+#### 方式三：开发模式
 适合频繁修改代码时使用：
 ```bash
 ./pg.sh run
 ```
 
-#### 方式三：重启服务
+#### 方式四：重启服务
 修改代码后需要重启：
 ```bash
 ./restart.sh
@@ -127,34 +196,6 @@ proxy-server
 
 **用户只需解压后直接运行，零依赖！**
 
-### 创建 GitHub Releases
-
-#### 方式一：自动化发布（推荐）✨
-
-使用 GitHub Actions 自动构建和发布：
-
-```bash
-# 1. 创建并推送 tag
-git tag v1.0.0
-git push origin main
-git push origin v1.0.0
-```
-
-GitHub Actions 会自动构建所有平台并创建 Release。
-
-#### 方式二：手动构建
-
-```bash
-# 1. 本地构建所有平台
-./build.sh v1.0.0
-
-# 2. 在 GitHub 上创建 Release
-# 访问 https://github.com/mooniitt/proxy-server/releases/new
-# 上传 build/ 目录下的所有压缩包
-```
-
-📖 **详细说明**：查看 [RELEASE.md](./RELEASE.md) 了解完整的发布流程。
-
 ### 手动编译单个平台
 
 #### 编译为当前操作系统
@@ -176,21 +217,6 @@ GOOS=darwin GOARCH=arm64 go build -o proxy-server-macos-arm64 main.go
 # Linux
 GOOS=linux GOARCH=amd64 go build -o proxy-server-linux main.go
 ```
-
-### 通过 Homebrew 安装 (macOS/Linux)
-
-1.  **准备 Formula**:
-    *   将项目根目录下的 `proxy-server.rb` 文件放置到您自己的 Homebrew Tap 仓库中 (例如 `your-github-user/homebrew-tap`)。
-    *   编辑 `proxy-server.rb`，将 `homepage`, `url` 和 `sha256` 替换为您的项目信息和发布存档的实际值。`sha256` 可以通过 `curl -L <url_to_archive> | shasum -a 256` 命令获取。
-2.  **添加 Tap 并安装**:
-    ```bash
-    brew tap your-github-user/tap # 替换为您的 tap 名称
-    brew install proxy-server
-    ```
-3.  **启动服务**:
-    ```bash
-    proxy-server # 直接运行二进制文件
-    ```
 
 > `pg.sh` 脚本适用于 Unix-like 系统 (macOS/Linux)，主要用于开发过程中便捷地停止、重建并重启服务。
 
