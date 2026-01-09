@@ -126,6 +126,9 @@ import 'ace-builds/src-noconflict/mode-text'
 
 // Worker setup for Ace usually requires configuring paths if we want syntax checking workers
 // For simplicity in this setup, we might skip worker configuration or rely on defaults.
+// FIX: Disable workers to prevent 404 errors for worker scripts in Vite environment
+ace.config.set("useWorker", false);
+ace.config.set("basePath", ""); // Disable base path auto-detection
 
 const props = defineProps(['rule'])
 const emit = defineEmits(['delete', 'save'])
@@ -182,6 +185,8 @@ const initEditor = () => {
   editorInstance = ace.edit(editorRef.value)
   editorInstance.setTheme("ace/theme/tomorrow")
   editorInstance.setFontSize(14)
+  // FIX: Disable worker for this session to avoid 404s
+  editorInstance.session.setOption("useWorker", false);
   
   if (props.rule) {
     editorInstance.setValue(props.rule.response.body || '', -1)

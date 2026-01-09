@@ -479,8 +479,15 @@ func handleHTTPSMITM(w http.ResponseWriter, r *http.Request) {
 		// *** 普通 HTTPS 请求处理逻辑 (原有逻辑) ***
 		log.Printf("[MITM] Recv Request: %s %s %s", req.Method, req.URL.String(), req.Host)
 
+		// 计算纯净的 Host (不带端口)
+		cleanHost := destHost
+		if h, p, err := net.SplitHostPort(destHost); err == nil && p == "443" {
+			cleanHost = h
+		}
+
 		req.URL.Scheme = "https"
-		req.URL.Host = destHost
+		req.URL.Host = cleanHost
+		req.Host = cleanHost // 关键：强制确保 Host 头不带端口，解决 OSS 等服务对 Host 头敏感的问题
 		fullURL := req.URL.String()
 
 		var resp *http.Response

@@ -23,7 +23,7 @@
       />
     </div>
 
-    <transition-group name="list" tag="div">
+    <div>
       <div
         v-for="log in filteredTraffic"
         :key="log.id"
@@ -53,7 +53,7 @@
           <div>{{ formatTime(log.time) }}</div>
         </div>
       </div>
-    </transition-group>
+    </div>
 
     <div v-if="traffic.length === 0" class="empty-msg">等待请求进入...</div>
   </div>
@@ -215,18 +215,6 @@ const formatTime = (t) =>
   color: var(--blue-main);
 }
 
-/* Instant leave for clearing */
-.list-leave-active {
-  display: none !important;
-  transition: none !important;
-  animation: none !important;
-  position: absolute;
-  width: 100%;
-}
-
-.list-leave-to {
-  opacity: 0;
-}
 
 .empty-msg {
   padding: 2rem;
