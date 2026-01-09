@@ -25,10 +25,12 @@
 ## ⏱ 快速开始
 
 ### 1. 环境准备
+
 - **Go**: 1.18+ (运行/编译后端)
 - **Node.js**: 16+ (构建前端 UI)
 
 ### 2. 一键启动
+
 项目提供了一个强大的 `proxy` 调度脚本，建议使用：
 
 ```bash
@@ -58,6 +60,7 @@ chmod +x proxy run.sh stop.sh
 ## 👨‍💻 开发指南
 
 ### 前端开发 (Vue 3)
+
 如果您想修改管理后台界面：
 
 ```bash
@@ -65,19 +68,24 @@ cd dashboard
 npm install
 npm run dev
 ```
+
 访问 `http://localhost:5173`。开发服务器已配置代理，会自动将 `/api` 请求转发至 `:9292` 的 Go 后端。
 
 ### 后端开发 (Go)
+
 ```bash
 # 直接运行后端
 go run main.go
 ```
 
 ### 生产打包
+
 修改完前端代码后，需要打包供 Go 服务托管：
+
 ```bash
 ./proxy build
 ```
+
 这会生成 `dist/` 目录，Go 服务会自动从中读取静态资源。
 
 ---
@@ -105,4 +113,9 @@ go run main.go
 ---
 
 ## License
+
 MIT
+
+## 欢迎通过一下方式直接提需求改进
+
+![alt text](https://youke3.picui.cn/s1/2026/01/09/69609f9213e8c.jpg)
