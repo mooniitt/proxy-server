@@ -1,8 +1,6 @@
 <template>
   <IntroAnimation />
   
-  <div class="toast" :class="{ show: toast.visible }" :style="{ background: toast.bg }">{{ toast.msg }}</div>
-
   <header>
     <h1><span>⚡</span> Proxy Mock</h1>
     <div class="header-info">
@@ -11,11 +9,13 @@
       </div>
     </div>
     <div class="header-actions">
-      <button class="btn btn-secondary" @click="showHelp = true">💡 使用说明</button>
-      <button class="btn btn-secondary" @click="regenerateCA">🔄 重生成 CA</button>
-      <a href="/ca.crt" class="btn btn-secondary" style="text-decoration: none;">📥 下载 CA 证书</a>
-      <button class="btn btn-secondary" @click="exportConfig">导出配置</button>
-      <button class="btn btn-primary" @click="saveAll">全部保存</button>
+      <el-button @click="showHelp = true">💡 使用说明</el-button>
+      <el-button @click="regenerateCA">🔄 重生成 CA</el-button>
+      <a href="/ca.crt" style="text-decoration: none; margin: 0 12px;">
+        <el-button>📥 下载 CA 证书</el-button>
+      </a>
+      <el-button @click="exportConfig">导出配置</el-button>
+      <el-button type="primary" @click="saveAll">全部保存</el-button>
     </div>
   </header>
 
@@ -26,6 +26,37 @@
       <div class="tab-header">
         <button class="tab-btn" :class="{ active: activeTab === 'rules' }" @click="activeTab = 'rules'">规则配置</button>
         <button class="tab-btn" :class="{ active: activeTab === 'traffic' }" @click="activeTab = 'traffic'">流量监控</button>
+      </div>
+      <div class="sidebar-list">
+        <el-scrollbar>
+          <div 
+             class="sidebar-item" 
+             :class="{ active: currentView === 'rules' }"
+             @click="currentView = 'rules'"
+          >
+            <div class="item-icon">⚡️</div>
+            <div class="item-content">
+              <div class="item-title">规则配置</div>
+              <div class="item-subtitle">{{ rules.length }} 个规则</div>
+            </div>
+          </div>
+          
+          <div 
+             class="sidebar-item" 
+             :class="{ active: currentView === 'traffic' }"
+             @click="currentView = 'traffic'"
+          >
+            <div class="item-icon">📡</div>
+            <div class="item-content">
+              <div class="item-title">流量监控</div>
+              <div class="item-subtitle">
+                {{ traffic.length }} 请求 
+                <span v-if="wsConnected" class="status-dot online"></span>
+                <span v-else class="status-dot offline"></span>
+              </div>
+            </div>
+          </div>
+        </el-scrollbar>
       </div>
 
       <RuleList v-if="activeTab === 'rules'" 
@@ -67,37 +98,32 @@
     </div>
   </div>
 
-  <!-- Help Modal -->
-  <div v-if="showHelp" class="modal-overlay" @click.self="showHelp = false">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h2>⚡ Proxy Mock 使用说明</h2>
-        <button class="btn btn-secondary" @click="showHelp = false">关闭</button>
-      </div>
-      <div class="modal-body">
-        <h3>1. 设置代理</h3>
-        <p>将您的设备（手机/浏览器）代理设置为当前机器 IP，端口为 <code class="code-bg">9292</code>。</p>
-        <h3>2. HTTPS 证书信任 (关键)</h3>
-        <p>若要解密 HTTPS 流量，请下载并信任证书：</p>
-        <ul>
-            <li><span class="step-badge">iOS</span> 下载后，在“关于本机”->“证书信任设置”中勾选。</li>
-            <li><span class="step-badge">Android</span> 在“加密和凭据”中从存储盘安装。</li>
-            <li><span class="step-badge">PC</span> 导入至“受信任的根证书颁发机构”。</li>
-        </ul>
-        <h3>3. 匹配模式</h3>
-        <ul>
-            <li><strong>正则匹配</strong>: 建议用于复杂 API 过滤。</li>
-            <li><strong>精确匹配</strong>: URL 必须完全一致。</li>
-            <li><strong>前缀匹配</strong>: 匹配以特定路径开头的请求。</li>
-        </ul>
-      </div>
+  <!-- Help Dialog -->
+  <el-dialog v-model="showHelp" title="⚡ Proxy Mock 使用说明" width="600px">
+    <div class="help-body">
+      <h3>1. 设置代理</h3>
+      <p>将您的设备（手机/浏览器）代理设置为当前机器 IP，端口为 <code class="code-bg">9292</code>。</p>
+      <h3>2. HTTPS 证书信任 (关键)</h3>
+      <p>若要解密 HTTPS 流量，请下载并信任证书：</p>
+      <ul>
+          <li><span class="step-badge">iOS</span> 下载后，在“关于本机”->“证书信任设置”中勾选。</li>
+          <li><span class="step-badge">Android</span> 在“加密和凭据”中从存储盘安装。</li>
+          <li><span class="step-badge">PC</span> 导入至“受信任的根证书颁发机构”。</li>
+      </ul>
+      <h3>3. 匹配模式</h3>
+      <ul>
+          <li><strong>正则匹配</strong>: 建议用于复杂 API 过滤。</li>
+          <li><strong>精确匹配</strong>: URL 必须完全一致。</li>
+          <li><strong>前缀匹配</strong>: 匹配以特定路径开头的请求。</li>
+      </ul>
     </div>
-  </div>
+  </el-dialog>
 </template>
 
 <script setup>
 import { ref, onMounted, onUnmounted, watch, computed } from 'vue'
 import axios from 'axios'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import IntroAnimation from './components/IntroAnimation.vue'
 import RuleList from './components/RuleList.vue'
 import TrafficMonitor from './components/TrafficMonitor.vue'
@@ -114,7 +140,6 @@ const editorMode = ref('none')
 const showHelp = ref(false)
 const serverInfo = ref({ ip: '', port: '' })
 const isTrafficPaused = ref(false)
-const toast = ref({ visible: false, msg: '', bg: '#10b981' })
 
 // Resizer Logic
 const sidebarWidth = ref(380)
@@ -135,10 +160,11 @@ const stopResizing = () => {
 
 // Helpers
 const showToast = (msg, type = 'success') => {
-    toast.value.msg = msg
-    toast.value.bg = type === 'success' ? '#10b981' : '#ef4444'
-    toast.value.visible = true
-    setTimeout(() => toast.value.visible = false, 2000)
+    ElMessage({
+        message: msg,
+        type: type,
+        duration: 2000
+    })
 }
 
 // API
@@ -181,11 +207,18 @@ const clearTraffic = async () => {
 }
 
 const regenerateCA = async () => {
-    if (confirm('确定重新生成 CA 证书吗？')) {
+    try {
+        await ElMessageBox.confirm('确定重新生成 CA 证书吗？', '提示', {
+            confirmButtonText: '确定',
+            cancelButtonText: '取消',
+            type: 'warning'
+        })
         try {
             await axios.post('/api/ca/generate')
             showToast('CA 证书已重生成')
         } catch (e) { showToast('重生成失败', 'error') }
+    } catch (e) {
+        // Cancelled
     }
 }
 
@@ -221,12 +254,19 @@ const selectTraffic = (log) => {
 }
 
 const deleteRule = async (id) => {
-    if (confirm('确定删除此规则？')) {
+    try {
+        await ElMessageBox.confirm('确定删除此规则？', '提示', {
+            confirmButtonText: '确定',
+            cancelButtonText: '取消',
+            type: 'warning'
+        })
         config.value.rules = config.value.rules.filter(r => r.id !== id)
         currentRule.value = null
         editorMode.value = 'none'
         await saveAll()
         showToast('已删除')
+    } catch (e) {
+        // Cancelled
     }
 }
 
@@ -234,6 +274,16 @@ const createRuleFromTraffic = (log) => {
     addRule()
     currentRule.value.url = log.url
     currentRule.value.name = 'Mock: ' + (log.url.split('/').pop() || 'Untitled')
+    
+    // Auto-fill response body if available
+    if (log.responseBody) {
+        currentRule.value.response.body = log.responseBody
+    }
+    
+    // Auto-fill Content-Type if available
+    if (log.responseHeaders && log.responseHeaders['Content-Type']) {
+        currentRule.value.response.headers['Content-Type'] = log.responseHeaders['Content-Type']
+    }
 }
 
 const toggleAllRules = (targetState) => {
@@ -400,69 +450,20 @@ header h1 {
 
 .empty-icon { opacity: 0.3; }
 
-/* Toast */
-.toast {
-  position: fixed;
-  top: 20px;
-  right: 20px;
-  color: white;
-  padding: 0.7rem 1.5rem;
-  border-radius: 8px;
-  font-size: 0.85rem;
-  transform: translateY(-100px);
-  transition: 0.3s;
-  z-index: 10000;
-}
-.toast.show { transform: translateY(0); }
-
-/* Modal */
-.modal-overlay {
-  position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.modal-content {
-  background: white;
-  padding: 2rem;
-  border-radius: 12px;
-  width: 90%;
-  max-width: 600px;
-  max-height: 85vh;
-  overflow-y: auto;
-  position: relative;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1.5rem;
-  border-bottom: 1px solid var(--border-color);
-  padding-bottom: 1rem;
-}
-
-.modal-header h2 { font-size: 1.25rem; }
-
-.modal-body h3 {
+.help-body h3 {
   margin: 1.5rem 0 0.5rem 0;
   color: var(--blue-dark);
   font-size: 1rem;
 }
 
-.modal-body p, .modal-body li {
+.help-body p, .help-body li {
   font-size: 0.9rem;
   line-height: 1.6;
   color: var(--text-main);
   margin-bottom: 0.5rem;
 }
 
-.modal-body ul { padding-left: 1.25rem; }
+.help-body ul { padding-left: 1.25rem; }
 
 .step-badge {
   background: var(--blue-light);

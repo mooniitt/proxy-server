@@ -53,6 +53,10 @@ body.resizing {
   gap: 0.4rem;
 }
 
+.btn:active {
+  transform: scale(0.96);
+}
+
 .btn-primary {
   background: var(--blue-main);
   color: white;

@@ -14,7 +14,7 @@
       </div>
     </div>
     <div class="mt-1-5">
-      <button class="btn btn-primary" @click="emit('createRule', log)">⚡ 基于此请求创建 Mock 规则</button>
+      <el-button type="primary" @click="emit('createRule', log)">⚡ 基于此请求创建 Mock 规则</el-button>
     </div>
   </div>
 </template>

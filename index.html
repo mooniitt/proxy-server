@@ -1173,6 +1173,17 @@
                     addRule();
                     currentRule.value.url = log.url;
                     currentRule.value.name = 'Mock: ' + (log.url.split('/').pop() || 'Untitled');
+                    
+                    // Auto-fill response body if available
+                    if (log.responseBody) {
+                        currentRule.value.response.body = log.responseBody;
+                    }
+                    
+                    // Auto-fill Content-Type if available
+                    if (log.responseHeaders && log.responseHeaders['Content-Type']) {
+                        currentRule.value.response.headers['Content-Type'] = log.responseHeaders['Content-Type'];
+                    }
+
                     activeTab.value = 'rules';
                 };
 

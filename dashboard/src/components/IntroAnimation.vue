@@ -38,7 +38,7 @@ const duration = 1500 // Total sequence duration
 
 // Frequency Limit Logic
 const checkFrequency = () => {
-  const MAX_DAILY_VIEWS = 2
+  const MAX_DAILY_VIEWS = 20
   const STORAGE_KEY = 'intro_stats'
   const today = new Date().toISOString().split('T')[0]
   

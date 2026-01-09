@@ -1,20 +1,17 @@
 <template>
   <div v-if="rule" class="editor-content">
-    <div class="editor-scroll-area">
+    <el-scrollbar class="editor-scroll-area" view-style="padding-right: 12px; display: flex; flex-direction: column; gap: 1.5rem;">
       <section>
         <div class="section-title">基础配置</div>
         <div class="grid-2">
           <div class="form-group">
             <label>规则名称</label>
-            <input type="text" v-model="rule.name">
+            <el-input v-model="rule.name" placeholder="请输入规则名称" />
           </div>
           <div class="form-group">
             <label>激活状态</label>
             <div style="display: flex; align-items: center; gap: 0.5rem; height: 100%;">
-              <label class="switch">
-                <input type="checkbox" v-model="rule.enabled">
-                <span class="slider"></span>
-              </label>
+              <el-switch v-model="rule.enabled" />
               <span class="status-text">{{ rule.enabled ? '已启用' : '已禁用' }}</span>
             </div>
           </div>
@@ -26,96 +23,108 @@
         <div class="grid-2">
           <div class="form-group">
             <label>匹配方式</label>
-            <select v-model="rule.matchType">
-              <option value="regex">正则匹配 (Regex)</option>
-              <option value="exact">精确匹配 (Exact)</option>
-              <option value="prefix">前缀匹配 (Prefix)</option>
-            </select>
+            <el-select v-model="rule.matchType" placeholder="选择匹配方式">
+              <el-option label="正则匹配 (Regex)" value="regex" />
+              <el-option label="精确匹配 (Exact)" value="exact" />
+              <el-option label="前缀匹配 (Prefix)" value="prefix" />
+            </el-select>
           </div>
           <div class="form-group">
             <label>URL (支持 http/https)</label>
-            <input type="text" v-model="rule.url" placeholder="例如: http://api.com/user">
+            <el-input v-model="rule.url" placeholder="例如: http://api.com/user" />
           </div>
         </div>
       </section>
       
       <section>
-        <div class="section-title header-toggle">
-          <span>响应 Mock</span>
-          <span @click="isResponseMockCollapsed = !isResponseMockCollapsed" class="toggle-icon">
-            {{ isResponseMockCollapsed ? '▼' : '▲' }}
-          </span>
-        </div>
-        
-        <div v-show="!isResponseMockCollapsed">
-          <div class="grid-2">
-            <div class="form-group">
-              <label>状态码</label>
-              <input type="number" v-model.number="rule.response.statusCode">
-            </div>
-            <div class="form-group">
-              <label>Content-Type</label>
-              <input type="text" list="content-type-options" 
-                     v-model="rule.response.headers['Content-Type']"
-                     placeholder="application/json">
-              <datalist id="content-type-options">
-                <option value="application/json">JSON</option>
-                <option value="text/plain">Text</option>
-                <option value="text/html">HTML</option>
-                <option value="application/xml">XML</option>
-                <option value="application/javascript">JavaScript</option>
-                <option value="text/css">CSS</option>
-              </datalist>
-            </div>
-          </div>
-
-          <!-- Advanced Options -->
-          <div class="advanced-section">
-            <div @click="isAdvancedCollapsed = !isAdvancedCollapsed" class="advanced-toggle">
-              <span>高级选项 (Headers, Delay)</span>
-              <span :style="{ transform: isAdvancedCollapsed ? 'rotate(0deg)' : 'rotate(180deg)' }">▼</span>
-            </div>
-
-            <div v-show="!isAdvancedCollapsed" class="advanced-content">
-              <div class="form-group mb-1">
-                <label>响应延迟 (ms)</label>
-                <input type="number" v-model.number="rule.response.delay" min="0" placeholder="0 表示无延迟">
-              </div>
-
+        <el-collapse v-model="activeCollapse">
+          <el-collapse-item name="mock">
+            <template #title>
+              <div class="section-title mb-0">响应 Mock</div>
+            </template>
+            
+            <div class="grid-2">
               <div class="form-group">
-                <div class="headers-header">
-                  <label>响应头 (Headers)</label>
-                  <button class="btn btn-secondary btn-xs" @click="addHeader">+ 添加</button>
+                <label>状态码</label>
+                <el-input-number v-model="rule.response.statusCode" :min="100" :max="599" controls-position="right" style="width: 100%;" />
+              </div>
+              <div class="form-group">
+                <label>Content-Type</label>
+                <el-select
+                  v-model="rule.response.headers['Content-Type']"
+                  placeholder="选择或输入 Content-Type"
+                  filterable
+                  allow-create
+                  default-first-option
+                  clearable
+                >
+                  <el-option label="JSON (application/json)" value="application/json" />
+                  <el-option label="HTML (text/html)" value="text/html" />
+                  <el-option label="Text (text/plain)" value="text/plain" />
+                  <el-option label="XML (application/xml)" value="application/xml" />
+                  <el-option label="JavaScript (application/javascript)" value="application/javascript" />
+                  <el-option label="FormData (multipart/form-data)" value="multipart/form-data" />
+                </el-select>
+              </div>
+            </div>
+
+            <!-- Advanced Options -->
+            <div class="advanced-section">
+              <div @click="isAdvancedCollapsed = !isAdvancedCollapsed" class="advanced-toggle">
+                <span>高级选项 (Headers, Delay)</span>
+                 <ChevronDown :size="14" :class="{ 'rotate-180': !isAdvancedCollapsed }" style="transition: transform 0.2s;" />
+              </div>
+
+              <div v-show="!isAdvancedCollapsed" class="advanced-content">
+                <div class="form-group mb-1">
+                  <label>响应延迟 (ms)</label>
+                  <el-input-number v-model="rule.response.delay" :min="0" placeholder="0 表示无延迟" controls-position="right" style="width: 200px;" />
                 </div>
-                <div class="headers-list">
-                  <div v-for="(header, index) in headerList" :key="index" class="header-row">
-                    <input type="text" v-model="header.key" placeholder="Key">
-                    <input type="text" v-model="header.value" placeholder="Value">
-                    <button class="btn btn-danger btn-xs" @click="removeHeader(index)">×</button>
+
+                <div class="form-group">
+                  <div class="headers-header">
+                    <label>响应头 (Headers)</label>
+                    <el-button size="small" @click="addHeader">
+                      <Plus :size="12" style="margin-right: 4px;" /> 添加
+                    </el-button>
                   </div>
-                  <div v-if="headerList.length === 0" class="no-headers">无自定义 Header</div>
+                  <div class="headers-list">
+                    <div v-for="(header, index) in headerList" :key="index" class="header-row">
+                      <el-input v-model="header.key" placeholder="Key" />
+                      <el-input v-model="header.value" placeholder="Value" />
+                      <el-button type="danger" size="small" circle @click="removeHeader(index)">
+                        <X :size="12" />
+                      </el-button>
+                    </div>
+                    <div v-if="headerList.length === 0" class="no-headers">无自定义 Header</div>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          <div class="form-group mt-1-5">
-            <label>响应体 (Body)</label>
-            <div ref="editorRef" class="ace-editor"></div>
-          </div>
-        </div>
+            <div class="form-group mt-1-5">
+              <label>响应体 (Body)</label>
+              <div ref="editorRef" class="ace-editor"></div>
+            </div>
+          </el-collapse-item>
+        </el-collapse>
       </section>
-    </div>
+    </el-scrollbar>
     
     <div class="editor-footer">
-      <button class="btn btn-danger" @click="emit('delete', rule.id)">删除此规则</button>
-      <button class="btn btn-primary" @click="emit('save')">保存全部配置</button>
+      <el-button type="danger" @click="emit('delete', rule.id)">
+        <Trash2 :size="14" style="margin-right: 4px;" /> 删除此规则
+      </el-button>
+      <el-button type="primary" @click="emit('save')">
+        <Save :size="14" style="margin-right: 4px;" /> 保存全部配置
+      </el-button>
     </div>
   </div>
 </template>
 
 <script setup>
 import { ref, watch, onMounted, nextTick, onBeforeUnmount } from 'vue'
+import { ChevronDown, Plus, X, Trash2, Save } from 'lucide-vue-next'
 import ace from 'ace-builds'
 import 'ace-builds/src-noconflict/theme-tomorrow'
 import 'ace-builds/src-noconflict/mode-json'
@@ -133,7 +142,7 @@ ace.config.set("basePath", ""); // Disable base path auto-detection
 const props = defineProps(['rule'])
 const emit = defineEmits(['delete', 'save'])
 
-const isResponseMockCollapsed = ref(false)
+const activeCollapse = ref(['mock'])
 const isAdvancedCollapsed = ref(true)
 const headerList = ref([])
 const editorRef = ref(null)
@@ -393,4 +402,6 @@ input:checked + .slider:before { transform: translateX(16px); }
   border-top: 1px solid var(--border-color);
   background: white;
 }
+
+
 </style>

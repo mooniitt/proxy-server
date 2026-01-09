@@ -4,63 +4,70 @@
       <div class="header-top">
         <span class="title">实时流量 (最近 100 条)</span>
         <div class="controls">
-          <button class="btn btn-secondary btn-sm" @click="emit('refresh')">
-            刷新
-          </button>
-          <button class="btn btn-danger btn-sm" @click="emit('clear')">
-            清除
-          </button>
-          <button class="btn btn-secondary btn-sm" @click="emit('togglePause')">
-            {{ isPaused ? "继续" : "暂停" }}
-          </button>
+          <el-button-group>
+            <el-button size="small" @click="emit('refresh')" title="刷新">
+              <RefreshCcw :size="12" style="margin-right: 4px;" /> 刷新
+            </el-button>
+            <el-button size="small" type="danger" @click="emit('clear')" title="清除列表">
+              <Trash2 :size="12" style="margin-right: 4px;" /> 清除
+            </el-button>
+            <el-button size="small" @click="emit('togglePause')" :type="isPaused ? 'warning' : 'info'" :title="isPaused ? '继续' : '暂停'">
+              <component :is="isPaused ? Play : Pause" :size="12" style="margin-right: 4px;" /> 
+              {{ isPaused ? "继续" : "暂停" }}
+            </el-button>
+          </el-button-group>
         </div>
       </div>
-      <input
-        type="text"
+      <el-input
         v-model="search"
         placeholder="搜索流量 (方法, URL)..."
-        class="search-input"
+        prefix-icon="Search"
+        clearable
+        class="mt-2"
       />
     </div>
 
-    <div>
-      <div
-        v-for="log in filteredTraffic"
-        :key="log.id"
-        class="list-item"
-        @click="emit('select', log)"
-        :style="{ borderLeft: `6px solid ${getColorForString(log.url)}` }"
-      >
-        <div class="item-info">
-          <div class="item-title">
-            <span
-              class="badge-traffic"
-              :style="{ color: log.method === 'POST' ? '#f59e0b' : '#0ea5e9' }"
-            >
-              {{ log.method }}
-            </span>
-            <span
-              class="status-badge"
-              :class="log.statusCode >= 400 ? 'status-4xx' : 'status-2xx'"
-            >
-              {{ log.statusCode }}
-            </span>
-            <span v-if="log.mocked" class="status-badge status-mock">MOCK</span>
+    <el-scrollbar class="traffic-list-scroll">
+      <div>
+        <div
+          v-for="log in filteredTraffic"
+          :key="log.id"
+          class="list-item"
+          @click="emit('select', log)"
+          :style="{ borderLeft: `6px solid ${getColorForString(log.url)}` }"
+        >
+          <div class="item-info">
+            <div class="item-title">
+              <span
+                class="badge-traffic"
+                :style="{ color: log.method === 'POST' ? '#f59e0b' : '#0ea5e9' }"
+              >
+                {{ log.method }}
+              </span>
+              <span
+                class="status-badge"
+                :class="log.statusCode >= 400 ? 'status-4xx' : 'status-2xx'"
+              >
+                {{ log.statusCode }}
+              </span>
+              <span v-if="log.mocked" class="status-badge status-mock">MOCK</span>
+            </div>
+            <div class="item-sub">{{ log.url }}</div>
           </div>
-          <div class="item-sub">{{ log.url }}</div>
-        </div>
-        <div class="item-meta">
-          <div>{{ formatTime(log.time) }}</div>
+          <div class="item-meta">
+            <div>{{ formatTime(log.time) }}</div>
+          </div>
         </div>
       </div>
-    </div>
 
-    <div v-if="traffic.length === 0" class="empty-msg">等待请求进入...</div>
+      <div v-if="traffic.length === 0" class="empty-msg">等待请求进入...</div>
+    </el-scrollbar>
   </div>
 </template>
 
 <script setup>
 import { ref, computed } from "vue";
+import { RefreshCcw, Trash2, Pause, Play } from 'lucide-vue-next';
 
 const props = defineProps(["traffic", "isPaused"]);
 const emit = defineEmits(["refresh", "clear", "togglePause", "select"]);
@@ -126,25 +133,6 @@ const formatTime = (t) =>
 .controls {
   display: flex;
   gap: 0.5rem;
-}
-
-.btn-sm {
-  padding: 0.2rem 0.5rem;
-  font-size: 0.7rem;
-}
-
-.search-input {
-  font-size: 0.8rem;
-  width: 100%;
-  padding: 0.6rem 0.8rem;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius);
-  outline: none;
-}
-
-.search-input:focus {
-  border-color: var(--blue-main);
-  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1);
 }
 
 .list-item {
@@ -214,7 +202,6 @@ const formatTime = (t) =>
   border: 1px solid var(--blue-main);
   color: var(--blue-main);
 }
-
 
 .empty-msg {
   padding: 2rem;
