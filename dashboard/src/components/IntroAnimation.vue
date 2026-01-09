@@ -27,14 +27,41 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 
-const show = ref(true)
+const show = ref(false)
 const proxyChars = 'PROXY'.split('')
 const mockChars = 'MOCK'.split('')
 
 // Animation State
 const progress = ref(0)
 const startTime = ref(0)
-const duration = 2200 // Total sequence duration
+const duration = 1500 // Total sequence duration
+
+// Frequency Limit Logic
+const checkFrequency = () => {
+  const MAX_DAILY_VIEWS = 2
+  const STORAGE_KEY = 'intro_stats'
+  const today = new Date().toISOString().split('T')[0]
+  
+  try {
+    const statsStr = localStorage.getItem(STORAGE_KEY)
+    let stats = statsStr ? JSON.parse(statsStr) : { date: today, count: 0 }
+    
+    // Reset if date changed
+    if (stats.date !== today) {
+      stats = { date: today, count: 0 }
+    }
+    
+    if (stats.count < MAX_DAILY_VIEWS) {
+      stats.count++
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(stats))
+      return true
+    }
+    return false
+  } catch (e) {
+    console.error('Intro limit check failed', e)
+    return true // Fallback to showing
+  }
+}
 
 // Easing: Elastic Out for "pop" effect
 const easeOutElastic = (t) => {
@@ -120,7 +147,10 @@ const animate = (timestamp) => {
 }
 
 onMounted(() => {
-  requestAnimationFrame(animate)
+  if (checkFrequency()) {
+    show.value = true
+    requestAnimationFrame(animate)
+  }
 })
 </script>
 
