@@ -1,85 +1,79 @@
 #!/bin/bash
 
-# 构建脚本 - 生成多平台可执行文件
-# 用户下载对应平台的二进制文件后，无需安装 Go、Node、Rust 等任何依赖即可运行
+# ==========================================
+# Proxy Mock Server 全平台构建脚本
+# ==========================================
 
 APP_NAME="proxy-server"
 VERSION=${1:-"v1.0.0"}
-BUILD_DIR="build"
+BUILD_DIR="build_out"
 
-echo "==== 开始构建 Proxy Server $VERSION ===="
-echo ""
+echo "🚀 开始构建 Proxy Mock Server $VERSION ..."
 
-# 创建构建目录
-rm -rf $BUILD_DIR
-mkdir -p $BUILD_DIR
+# 确保在脚本所在目录执行
+cd "$(dirname "$0")"
 
-# 需要打包的静态资源
-STATIC_FILES=(
-    "index.html"
-    "vue.global.js"
-    "config.json"
-    "vendor"
-)
+# 1. 清理旧产物
+rm -rf "$BUILD_DIR"
+mkdir -p "$BUILD_DIR"
 
-echo "📦 准备静态资源..."
+# 2. 构建前端 UI
+echo "📦 正在构建前端 (ui)..."
+cd ui
+if [ ! -d "node_modules" ]; then
+    npm install || exit 1
+fi
+npm run build || exit 1
+cd ..
 
-# 构建函数
+# 同步 dist 到根目录用于 Go 服务嵌入或读取
+
+
+echo "✅ 前端构建完成。"
+
+# 3. 定义需要打包的文件
+ASSETS=("dist" "config.json" "README.md")
+
+# 4. 构建函数
 build_for_platform() {
     local os=$1
     local arch=$2
     local ext=$3
     
-    local output_name="${APP_NAME}-${os}-${arch}${ext}"
-    local output_dir="${BUILD_DIR}/${APP_NAME}-${os}-${arch}"
+    local platform_name="${APP_NAME}-${os}-${arch}"
+    local output_dir="${BUILD_DIR}/${platform_name}"
     
-    echo "🔨 正在构建: $os/$arch"
+    echo "🔨 编译: $os/$arch ..."
+    mkdir -p "$output_dir"
     
-    # 编译
+    # 编译 Go 后端
     GOOS=$os GOARCH=$arch go build -ldflags="-s -w" -o "${output_dir}/${APP_NAME}${ext}" main.go
     
     if [ $? -eq 0 ]; then
-        # 复制静态资源
-        for file in "${STATIC_FILES[@]}"; do
-            if [ -e "$file" ]; then
-                cp -r "$file" "${output_dir}/"
+        # 复制资源
+        for asset in "${ASSETS[@]}"; do
+            if [ -e "$asset" ]; then
+                cp -r "$asset" "$output_dir/"
             fi
         done
         
-        # 创建启动说明
-        cat > "${output_dir}/README.txt" << EOF
-Proxy Mock Server ${VERSION}
-============================
-
-快速启动：
-1. 双击运行 ${APP_NAME}${ext}（或在终端执行：./${APP_NAME}${ext}）
-2. 浏览器会自动打开 http://localhost:9292
-3. 将您的设备代理设置为：机器IP:9292
-
-无需安装任何依赖！
-
-详细文档：https://github.com/mooniitt/proxy-server
-EOF
-        
-        # 打包成压缩文件
-        cd $BUILD_DIR
-        if [[ "$os" == "windows" ]]; then
-            zip -rq "${output_name}.zip" "${APP_NAME}-${os}-${arch}"
-            echo "   ✅ ${output_name}.zip"
+        # 压缩
+        cd "$BUILD_DIR"
+        if [ "$os" == "windows" ]; then
+            zip -rq "${platform_name}.zip" "$platform_name"
         else
-            tar -czf "${output_name}.tar.gz" "${APP_NAME}-${os}-${arch}"
-            echo "   ✅ ${output_name}.tar.gz"
+            tar -czf "${platform_name}.tar.gz" "$platform_name"
         fi
+        rm -rf "$platform_name"
         cd ..
+        echo "   ✅ 完成: ${platform_name}"
     else
-        echo "   ❌ 构建失败"
+        echo "   ❌ 失败: $os/$arch"
     fi
 }
 
-# 构建各平台版本
-echo ""
-echo "🚀 开始多平台构建..."
-echo ""
+# 5. 执行多平台构建
+echo "📂 开始多平台打包..."
 
 # macOS
 build_for_platform "darwin" "amd64" ""
@@ -91,19 +85,9 @@ build_for_platform "linux" "arm64" ""
 
 # Windows
 build_for_platform "windows" "amd64" ".exe"
-build_for_platform "windows" "arm64" ".exe"
 
 echo ""
 echo "===================================="
-echo "✨ 构建完成！"
+echo "✨ 构建成功！产物位于: $BUILD_DIR/"
 echo "===================================="
-echo ""
-echo "📁 输出目录: $BUILD_DIR/"
-echo ""
-ls -lh $BUILD_DIR/*.{tar.gz,zip} 2>/dev/null | awk '{print "   " $9 " (" $5 ")"}'
-echo ""
-echo "📝 使用说明："
-echo "   1. 将对应平台的压缩包发送给用户"
-echo "   2. 用户解压后直接运行即可，无需安装任何依赖"
-echo "   3. 支持平台：macOS (Intel/M1/M2), Linux (x64/ARM), Windows (x64/ARM)"
-echo ""
+ls -lh "$BUILD_DIR/"

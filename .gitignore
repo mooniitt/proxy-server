@@ -1,7 +1,21 @@
+# 证书和配置
 ca.crt
 ca.key
 config.json
-.dist
-server.log
+
+# 编译产物
+dist/
 proxy-server
-node_modules
+server.log
+tauri/src-tauri/target/
+tauri/target/
+
+# 依赖和系统文件
+node_modules/
+.DS_Store
+.idea/
+.vscode/
+
+# UI 产物
+ui/node_modules/
+ui/dist/build_out/

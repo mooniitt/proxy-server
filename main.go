@@ -35,6 +35,7 @@ type MockRule struct {
 	ID        string       `json:"id"`
 	Enabled   bool         `json:"enabled"`
 	Name      string       `json:"name"`
+	Method    string       `json:"method"` // HTTP Method: GET, POST, OPTIONS, or "ALL"
 	URL       string       `json:"url"`
 	MatchType string       `json:"matchType"` // exact, prefix, regex
 	Response  MockResponse `json:"response"`
@@ -176,7 +177,7 @@ func (cm *CertManager) GetCertificate(host string) (*tls.Certificate, error) {
 	}
 	serialNumber, _ := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 128))
 	template := x509.Certificate{
-		SerialNumber:          serialNumber,
+		SerialNumber: serialNumber,
 		Subject: pkix.Name{
 			Organization:       []string{"Proxy Mock CA"},
 			OrganizationalUnit: []string{"MITM Development"},
@@ -227,7 +228,41 @@ func saveConfig() {
 	os.WriteFile(configFile, data, 0644)
 }
 
-func findMatch(reqURL string) *MockRule {
+func findMatch(reqURL string, reqMethod string) *MockRule {
+	configMu.RLock()
+	defer configMu.RUnlock()
+	for _, rule := range config.Rules {
+		if !rule.Enabled {
+			continue
+		}
+
+		// Method matching
+		if rule.Method != "" && rule.Method != "ALL" {
+			if strings.ToUpper(rule.Method) != strings.ToUpper(reqMethod) {
+				continue
+			}
+		}
+
+		matched := false
+		switch rule.MatchType {
+		case "exact":
+			matched = reqURL == rule.URL
+		case "prefix":
+			matched = strings.HasPrefix(reqURL, rule.URL)
+		case "regex":
+			re, err := regexp.Compile(rule.URL)
+			if err == nil {
+				matched = re.MatchString(reqURL)
+			}
+		}
+		if matched {
+			return &rule
+		}
+	}
+	return nil
+}
+
+func anyRuleMatch(reqURL string) bool {
 	configMu.RLock()
 	defer configMu.RUnlock()
 	for _, rule := range config.Rules {
@@ -247,10 +282,10 @@ func findMatch(reqURL string) *MockRule {
 			}
 		}
 		if matched {
-			return &rule
+			return true
 		}
 	}
-	return nil
+	return false
 }
 
 // --- HTTP 处理器 ---
@@ -353,7 +388,17 @@ func processRequest(w http.ResponseWriter, r *http.Request, fullURL string) {
 	var statusCode int
 	var mocked bool
 
-	if rule := findMatch(fullURL); rule != nil {
+	rule := findMatch(fullURL, r.Method)
+	if rule == nil && r.Method == http.MethodOptions && anyRuleMatch(fullURL) {
+		log.Printf("[MOCK] Smart Preflight handled for %s", fullURL)
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH")
+		w.Header().Set("Access-Control-Allow-Headers", "*")
+		w.Header().Set("Access-Control-Max-Age", "86400")
+		w.WriteHeader(http.StatusNoContent)
+		statusCode = http.StatusNoContent
+		mocked = true
+	} else if rule != nil {
 		if rule.Response.Delay > 0 {
 			log.Printf("[MOCK] Applying delay %dms for rule '%s'", rule.Response.Delay, rule.Name)
 			time.Sleep(time.Duration(rule.Response.Delay) * time.Millisecond)
@@ -432,7 +477,7 @@ func handleHTTPSMITM(w http.ResponseWriter, r *http.Request) {
 		// *** WebSocket 处理逻辑 ***
 		if strings.ToLower(req.Header.Get("Upgrade")) == "websocket" {
 			log.Printf("[MITM] WebSocket Upgrade detected for %s", destHost)
-			
+
 			// 1. 连接目标服务器 (使用 processRequest 里的逻辑类似的 Dial)
 			// 注意：这里需要建立 TLS 连接
 			targetConn, err := tls.Dial("tcp", destHost, &tls.Config{InsecureSkipVerify: true})
@@ -447,7 +492,7 @@ func handleHTTPSMITM(w http.ResponseWriter, r *http.Request) {
 			// 注意：需要确保请求格式正确，RequestURI 需要是完整路径或相对路径
 			req.URL.Scheme = "https"
 			req.URL.Host = destHost
-			
+
 			// 修正 RequestURI 为路径形式，避免 Write 报错
 			req.RequestURI = ""
 			if err := req.Write(targetConn); err != nil {
@@ -494,7 +539,23 @@ func handleHTTPSMITM(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		mocked := false
 
-		if rule := findMatch(fullURL); rule != nil {
+		rule := findMatch(fullURL, req.Method)
+		if rule == nil && req.Method == http.MethodOptions && anyRuleMatch(fullURL) {
+			log.Printf("[MITM MOCK] Smart Preflight handled for %s", fullURL)
+			header := make(http.Header)
+			header.Set("Access-Control-Allow-Origin", "*")
+			header.Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH")
+			header.Set("Access-Control-Allow-Headers", "*")
+			header.Set("Access-Control-Max-Age", "86400")
+			resp = &http.Response{
+				StatusCode: http.StatusNoContent,
+				Proto:      req.Proto,
+				Header:     header,
+				Body:       io.NopCloser(strings.NewReader("")),
+				Request:    req,
+			}
+			mocked = true
+		} else if rule != nil {
 			if rule.Response.Delay > 0 {
 				log.Printf("[MITM MOCK] Applying delay %dms for rule '%s'", rule.Response.Delay, rule.Name)
 				time.Sleep(time.Duration(rule.Response.Delay) * time.Millisecond)
